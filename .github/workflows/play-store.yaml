@@ -143,4 +143,3 @@ jobs:
           releaseFiles: ${{ steps.bundle.outputs.path }}
           tracks: internal
           status: completed
-          changesNotSentForReview: true
