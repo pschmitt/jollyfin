@@ -139,7 +139,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: dev.pschmitt.jellyfin
+          packageName: dev.pschmitt.jollyfin
           releaseFiles: ${{ steps.bundle.outputs.path }}
           tracks: internal
           status: completed

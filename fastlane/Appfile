@@ -1,1 +1,2 @@
-package_name("dev.pschmitt.jellyfin")
+# debug build under test; see docs/screenshots.md
+package_name("dev.pschmitt.jollyfin.debug")

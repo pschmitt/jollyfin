@@ -21,9 +21,10 @@ mipad_ssh_port := env_var_or_default("MIPAD_SSH_PORT", "8022")
 mipad_adb_port := env_var_or_default("MIPAD_ADB_PORT", "5555")
 mipad_abi := env_var_or_default("MIPAD_ABI", "arm64-v8a")
 
-# The Play Console listing's actual package - note this deliberately doesn't match the repo name
-# (see fastlane/Appfile).
-play_package := "dev.pschmitt.jellyfin"
+# The Play Console listing's actual package, matching applicationId in app/phone|tv/build.gradle.kts
+# and `gpc apps list` - NOT fastlane/Appfile's "dev.pschmitt.jellyfin" (that's the separate debug
+# build under test for screenshots, and appears to be a pre-existing typo there regardless).
+play_package := "dev.pschmitt.jollyfin"
 
 # List all available recipes
 default:
