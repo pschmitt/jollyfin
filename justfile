@@ -21,6 +21,10 @@ mipad_ssh_port := env_var_or_default("MIPAD_SSH_PORT", "8022")
 mipad_adb_port := env_var_or_default("MIPAD_ADB_PORT", "5555")
 mipad_abi := env_var_or_default("MIPAD_ABI", "arm64-v8a")
 
+# The Play Console listing's actual package - note this deliberately doesn't match the repo name
+# (see fastlane/Appfile).
+play_package := "dev.pschmitt.jellyfin"
+
 # List all available recipes
 default:
     @just --list
@@ -233,3 +237,104 @@ jellyfin-fixture-up: jellyfin-fixture-media
 # Tear down the screenshot fixture and its volumes.
 jellyfin-fixture-down:
     docker compose -f ci/jellyfin/docker-compose.yml down --volumes --remove-orphans
+
+# --- Play Console uploads ---------------------------------------------------
+
+# Upload the generated screenshots to the Play Console listing. Deliberately separate from
+# capturing them: review the images (build artifact, or the PR screenshots.yaml opens with
+# open_pr) before this ever runs - it never deletes existing Play Console images automatically.
+screenshots-upload:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    image_dir="fastlane/metadata/android"
+    shopt -s nullglob
+    image_types=(phoneScreenshots sevenInchScreenshots tenInchScreenshots)
+    found_images=0
+    for image_type in "${image_types[@]}"
+    do
+      image_glob=("$image_dir"/en-US/images/"$image_type"/*)
+      if [[ ${#image_glob[@]} -gt 0 ]]
+      then
+        found_images=1
+      fi
+    done
+    if [[ "$found_images" -eq 0 ]]
+    then
+      printf 'No generated screenshots found under %s\n' "$image_dir" >&2
+      exit 1
+    fi
+    if ! command -v gpc >/dev/null
+    then
+      printf 'gpc (playconsole-cli) is required for Play Console uploads\n' >&2
+      exit 1
+    fi
+    if ! gpc apps list --output json | rg -q '"package_name":"{{play_package}}"'
+    then
+      printf 'Play Console package %s was not found via `gpc apps list`\n' "{{play_package}}" >&2
+      exit 1
+    fi
+    for image_type in "${image_types[@]}"
+    do
+      image_glob=("$image_dir"/en-US/images/"$image_type"/*)
+      for image in "${image_glob[@]}"
+      do
+        printf 'Uploading %s\n' "$image"
+        gpc --package {{play_package}} images upload \
+          --locale en-US \
+          --type "$image_type" \
+          --file "$image"
+      done
+    done
+
+# Upload the already-committed icon (fastlane/metadata/android/en-US/images/icon.png) to the Play
+# Console listing. Not locale-scoped, so kept separate from the screenshot upload above.
+play-icon-upload:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    icon="fastlane/metadata/android/en-US/images/icon.png"
+    if [[ ! -f "$icon" ]]
+    then
+      printf 'Icon not found: %s\n' "$icon" >&2
+      exit 1
+    fi
+    if ! command -v gpc >/dev/null
+    then
+      printf 'gpc (playconsole-cli) is required for Play Console uploads\n' >&2
+      exit 1
+    fi
+    if ! gpc apps list --output json | rg -q '"package_name":"{{play_package}}"'
+    then
+      printf 'Play Console package %s was not found via `gpc apps list`\n' "{{play_package}}" >&2
+      exit 1
+    fi
+    gpc --package {{play_package}} images upload \
+      --locale en-US \
+      --type icon \
+      --file "$icon"
+
+# Upload the already-committed feature graphic
+# (fastlane/metadata/android/en-US/images/featureGraphic.png, 1024x500) to the Play Console
+# listing. Not locale-scoped, so kept separate from the screenshot upload above.
+play-feature-graphic-upload:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    graphic="fastlane/metadata/android/en-US/images/featureGraphic.png"
+    if [[ ! -f "$graphic" ]]
+    then
+      printf 'Feature graphic not found: %s\n' "$graphic" >&2
+      exit 1
+    fi
+    if ! command -v gpc >/dev/null
+    then
+      printf 'gpc (playconsole-cli) is required for Play Console uploads\n' >&2
+      exit 1
+    fi
+    if ! gpc apps list --output json | rg -q '"package_name":"{{play_package}}"'
+    then
+      printf 'Play Console package %s was not found via `gpc apps list`\n' "{{play_package}}" >&2
+      exit 1
+    fi
+    gpc --package {{play_package}} images upload \
+      --locale en-US \
+      --type featureGraphic \
+      --file "$graphic"
