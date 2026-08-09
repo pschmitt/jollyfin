@@ -1780,12 +1780,16 @@ entry summarizes - read it before touching the workflow/test file, it documents 
 non-obvious failure modes (ANR dialogs landing in captures, Compose clicks silently missing
 occluded nodes, artifact-download nesting, etc.) already hit and fixed once there.
 
-Status: implementation complete, 2026-08-05. Not yet verified end-to-end on a real emulator/CI
-run (no local Gradle/emulator per this repo's remote-build split) - dispatch the workflow (or run
-`StoreScreenshotTest` against `just jellyfin-fixture-up` some other way) before trusting the
-captures blind. If the click choreography needs fixes, `docs/screenshots.md`-style debugging
-(readable failure-screenshot pulls, `waitFor*` on screen-unique facts) is already wired in via
-`captureE2eScreenshot`/the workflow's failure-screenshot pull step.
+Status: **done**, verified end-to-end via real emulator/CI runs (several iterations, 2026-08-05,
+fixing real click-choreography/PAT-push issues found along the way - see `fix(FINDROID-71)`
+commits). Re-dispatched (`gh workflow run screenshots.yaml --ref main`, run `31170861481`,
+2026-08-07) to confirm the test still passes after the same day's FINDROID-74 Settings reorg
+(Appearance moved between cards several times) - all three matrix jobs (phone/sevenInch/tenInch)
+passed without any test-tag fix needed, since `e2e-settings-appearance-category`
+(`SettingsGroupCard.kt`) matches by string-resource id rather than screen position, so it survived
+the reorg unmodified. If the click choreography ever needs fixes, `docs/screenshots.md`-style
+debugging (readable failure-screenshot pulls, `waitFor*` on screen-unique facts) is already wired
+in via `captureE2eScreenshot`/the workflow's failure-screenshot pull step.
 
 ## FINDROID-72: rename `Findroid*` model classes, `FindroidTheme`, `cli/findroid-cli`, and the CI
 keystore/rbw entry to Jollyfin
