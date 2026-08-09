@@ -140,7 +140,7 @@
     <string name="delete_download_with_size">Delete download (%1$s)</string>
     <string name="delete_download_message">Are you sure you want to delete this download from you device?</string>
     <string name="stop_download">Stop download</string>
-    <string name="privacy_policy_notice">By using JollyFin you agree with the <a href='https://raw.githubusercontent.com/jarnedemeulemeester/findroid/main/PRIVACY'>Privacy Policy</a> which states that we do not collect any data</string>
+    <string name="privacy_policy_notice">By using JollyFin you agree to the <a href='https://raw.githubusercontent.com/pschmitt/jollyfin/main/PRIVACY.md'>Privacy Policy</a>, which explains how the app handles your information</string>
     <string name="live_tv">Live TV</string>
     <string name="play">Play</string>
     <string name="watch_trailer">Watch trailer</string>

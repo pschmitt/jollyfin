@@ -1987,3 +1987,16 @@ Requested (2026-08-07), immediately after v2.14.0 (Profiles) shipped:
 
 Status: **done** (2026-08-07) - less frequently used settings consolidated under Advanced and
 deployed.
+
+## FINDROID-75: Refresh and rename the privacy policy
+
+- [x] Rename the root privacy policy from `PRIVACY` to `PRIVACY.md`.
+- [x] Rewrite the policy for JollyFin, covering direct configured-service traffic, local storage,
+      backups, permissions, external links, and the absence of developer-side analytics or
+      automatic crash reporting.
+- [x] Update the in-app privacy-policy URLs and remove the remaining Findroid branding from the
+      privacy-policy notice.
+
+Status: **done** (2026-08-09) - policy and in-app link updates implemented; all 36 Android string
+XML files parsed successfully, `git diff --check` passed, and stale upstream privacy URLs were
+removed.
