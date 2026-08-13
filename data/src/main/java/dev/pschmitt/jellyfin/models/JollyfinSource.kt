@@ -16,6 +16,7 @@ data class JollyfinSource(
     val mediaStreams: List<JollyfinMediaStream>,
     val downloadId: Long? = null,
     val checksum: String? = null,
+    val pausedByBatterySaver: Boolean = false,
     val excludeFromAutoDelete: Boolean = false,
 )
 
@@ -66,6 +67,7 @@ fun JollyfinSourceDto.toJollyfinSource(mediaStreams: List<JollyfinMediaStreamDto
         mediaStreams = mediaStreams.map { it.toJollyfinMediaStream() },
         downloadId = downloadId,
         checksum = checksum,
+        pausedByBatterySaver = pausedByBatterySaver,
         excludeFromAutoDelete = excludeFromAutoDelete,
     )
 }

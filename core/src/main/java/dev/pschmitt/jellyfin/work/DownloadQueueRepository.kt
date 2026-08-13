@@ -67,10 +67,16 @@ class DownloadQueueRepository @Inject constructor() {
     /**
      * Used by pause/cancel - stops the transfer coroutine (if any) and drops the pending request.
      */
-    fun cancel(sourceId: String) {
+    fun cancel(sourceId: String, pausedByBatterySaver: Boolean = false) {
         jobs.remove(sourceId)?.cancel()
         requests.remove(sourceId)
-        setProgress(sourceId, DownloadProgress(status = DownloadManager.STATUS_PAUSED))
+        setProgress(
+            sourceId,
+            DownloadProgress(
+                status = DownloadManager.STATUS_PAUSED,
+                pausedByBatterySaver = pausedByBatterySaver,
+            ),
+        )
     }
 
     fun markFailed(sourceId: String) {

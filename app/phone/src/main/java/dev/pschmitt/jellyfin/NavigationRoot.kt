@@ -5,7 +5,6 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -16,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -50,6 +48,8 @@ import dev.pschmitt.jellyfin.presentation.film.DownloadsScreen
 import dev.pschmitt.jellyfin.presentation.film.EpisodeScreen
 import dev.pschmitt.jellyfin.presentation.film.HomeScreen
 import dev.pschmitt.jellyfin.presentation.film.LibraryScreen
+import dev.pschmitt.jellyfin.presentation.film.MediaItemsKind
+import dev.pschmitt.jellyfin.presentation.film.MediaItemsScreen
 import dev.pschmitt.jellyfin.presentation.film.MovieScreen
 import dev.pschmitt.jellyfin.presentation.film.PersonScreen
 import dev.pschmitt.jellyfin.presentation.film.SeasonScreen
@@ -61,6 +61,9 @@ import dev.pschmitt.jellyfin.presentation.settings.SettingsScreen
 import dev.pschmitt.jellyfin.presentation.settings.backup.BackupSettingsScreen
 import dev.pschmitt.jellyfin.presentation.settings.homelayout.HomeLayoutSettingsScreen
 import dev.pschmitt.jellyfin.presentation.settings.localaccess.LocalAccessScreen
+import dev.pschmitt.jellyfin.presentation.settings.navigation.NavigationBarIcon
+import dev.pschmitt.jellyfin.presentation.settings.navigation.NavigationBarSettingsScreen
+import dev.pschmitt.jellyfin.presentation.settings.navigation.NavigationBarSettingsViewModel
 import dev.pschmitt.jellyfin.presentation.settings.profiles.ProfileDetailScreen
 import dev.pschmitt.jellyfin.presentation.settings.profiles.ProfilesListScreen
 import dev.pschmitt.jellyfin.presentation.settings.qrexport.QrExportScreen
@@ -73,6 +76,8 @@ import dev.pschmitt.jellyfin.presentation.setup.servers.ServersScreen
 import dev.pschmitt.jellyfin.presentation.setup.users.UsersScreen
 import dev.pschmitt.jellyfin.presentation.setup.welcome.WelcomeScreen
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
+import dev.pschmitt.jellyfin.settings.domain.NavigationBarPinnedItem
+import dev.pschmitt.jellyfin.utils.NavigationBarItemKeys
 import java.util.UUID
 import kotlinx.serialization.Serializable
 
@@ -89,6 +94,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class LoginRoute(val username: String? = null)
 
 @Serializable data object HomeRoute
+
+@Serializable data object FavoritesRoute
+
+@Serializable data object NextUpRoute
 
 @Serializable data object DownloadsRoute
 
@@ -159,14 +168,19 @@ data class SeerrMediaRoute(
 
 @Serializable data object HomeLayoutSettingsRoute
 
+@Serializable data object NavigationBarSettingsRoute
+
 @Serializable data object RestoreBackupRoute
 
 @Serializable data class ScanQrRoute(val rawPayload: String? = null)
 
 data class TabBarItem(
+    val key: String,
     @param:StringRes val title: Int = 0,
     val titleText: String? = null,
     @param:DrawableRes val icon: Int,
+    val imageUri: String? = null,
+    val showImage: Boolean = false,
     val route: Any,
     val enabled: Boolean = true,
 )
@@ -183,6 +197,7 @@ private fun libraryIcon(type: CollectionType): Int =
 
 private fun libraryTab(library: JollyfinCollection) =
     TabBarItem(
+        key = NavigationBarItemKeys.library(library.id.toString()),
         titleText = library.name,
         icon = libraryIcon(library.type),
         route =
@@ -194,25 +209,73 @@ private fun libraryTab(library: JollyfinCollection) =
             ),
     )
 
+private fun pinnedTab(item: NavigationBarPinnedItem): TabBarItem? {
+    val route =
+        when (item.type) {
+            "movie" -> MovieRoute(item.id)
+            "show" -> ShowRoute(item.id)
+            "episode" -> EpisodeRoute(item.id)
+            "season" -> SeasonRoute(item.id)
+            else -> return null
+        }
+    return TabBarItem(
+        key = item.key,
+        titleText = item.title,
+        icon = CoreR.drawable.ic_star,
+        imageUri = item.imageUri,
+        showImage = item.showImage,
+        route = route,
+    )
+}
+
 val homeTab =
-    TabBarItem(title = CoreR.string.title_home, icon = CoreR.drawable.ic_home, route = HomeRoute)
+    TabBarItem(
+        key = NavigationBarItemKeys.HOME,
+        title = CoreR.string.title_home,
+        icon = CoreR.drawable.ic_home,
+        route = HomeRoute,
+    )
 val mediaTab =
     TabBarItem(
+        key = NavigationBarItemKeys.MEDIA,
         title = CoreR.string.title_media_tab,
         icon = CoreR.drawable.ic_library,
         route = MediaRoute,
     )
 val downloadsTab =
     TabBarItem(
+        key = NavigationBarItemKeys.DOWNLOADS,
         title = CoreR.string.title_download,
         icon = CoreR.drawable.ic_download,
         route = DownloadsRoute,
     )
 val calendarTab =
     TabBarItem(
+        key = NavigationBarItemKeys.CALENDAR,
         title = CoreR.string.title_calendar,
         icon = CoreR.drawable.ic_calendar,
         route = CalendarRoute,
+    )
+val favoritesTab =
+    TabBarItem(
+        key = NavigationBarItemKeys.FAVORITES,
+        title = CoreR.string.title_favorite,
+        icon = CoreR.drawable.ic_heart,
+        route = FavoritesRoute,
+    )
+val nextUpTab =
+    TabBarItem(
+        key = NavigationBarItemKeys.NEXT_UP,
+        title = CoreR.string.next_up,
+        icon = CoreR.drawable.ic_skip_forward,
+        route = NextUpRoute,
+    )
+val settingsTab =
+    TabBarItem(
+        key = NavigationBarItemKeys.SETTINGS,
+        title = CoreR.string.title_settings,
+        icon = CoreR.drawable.ic_settings,
+        route = settingsRootRoute(),
     )
 
 /** Plain "open Settings at its root", not scrolled to any particular section. */
@@ -238,6 +301,7 @@ fun NavigationRoot(
     hasCurrentServer: Boolean,
     hasCurrentUser: Boolean,
     mediaViewModel: MediaViewModel = hiltViewModel(),
+    navigationSettingsViewModel: NavigationBarSettingsViewModel = hiltViewModel(),
 ) {
     val isOfflineMode = LocalOfflineMode.current
 
@@ -256,6 +320,10 @@ fun NavigationRoot(
         )
 
     val mediaState by mediaViewModel.state.collectAsStateWithLifecycle()
+    val pinnedItemsVersion by
+        navigationSettingsViewModel.pinnedItemsVersion.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { navigationSettingsViewModel.refreshPinnedArtwork() }
 
     // Movies and TV show libraries are merged into a single "Media" tab; any other library
     // types (box sets, mixed, folders, ...) keep their own tab.
@@ -264,16 +332,21 @@ fun NavigationRoot(
             it.type == CollectionType.Movies || it.type == CollectionType.TvShows
         }
 
-    val navigationItems =
+    val naturalNavigationItems =
         when (isOfflineMode) {
             false ->
                 listOf(homeTab) +
                     (if (mergedLibraries.isNotEmpty()) listOf(mediaTab) else emptyList()) +
                     standaloneLibraries.map(::libraryTab) +
                     listOf(downloadsTab) +
-                    (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList())
-            true -> listOf(homeTab, downloadsTab)
+                    (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList()) +
+                    listOf(favoritesTab, nextUpTab, settingsTab) +
+                    pinnedItemsVersion.let {
+                        navigationSettingsViewModel.pinnedItems().mapNotNull(::pinnedTab)
+                    }
+            true -> listOf(homeTab, downloadsTab, settingsTab)
         }
+    val navigationItems = navigationSettingsViewModel.resolveVisibleItems(naturalNavigationItems)
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -285,7 +358,35 @@ fun NavigationRoot(
     fun TabBarItem.isSelected(): Boolean =
         when (val r = route) {
             is LibraryRoute -> currentLibraryRoute?.libraryId == r.libraryId
-            else -> currentRoute == r::class.qualifiedName
+            is MovieRoute ->
+                if (key.startsWith("item:")) {
+                    navBackStackEntry?.let {
+                        runCatching { it.toRoute<MovieRoute>().movieId == r.movieId }
+                            .getOrDefault(false)
+                    } == true
+                } else currentRoute?.startsWith(r::class.qualifiedName.orEmpty()) == true
+            is ShowRoute ->
+                if (key.startsWith("item:")) {
+                    navBackStackEntry?.let {
+                        runCatching { it.toRoute<ShowRoute>().showId == r.showId }
+                            .getOrDefault(false)
+                    } == true
+                } else currentRoute?.startsWith(r::class.qualifiedName.orEmpty()) == true
+            is EpisodeRoute ->
+                if (key.startsWith("item:")) {
+                    navBackStackEntry?.let {
+                        runCatching { it.toRoute<EpisodeRoute>().episodeId == r.episodeId }
+                            .getOrDefault(false)
+                    } == true
+                } else currentRoute?.startsWith(r::class.qualifiedName.orEmpty()) == true
+            is SeasonRoute ->
+                if (key.startsWith("item:")) {
+                    navBackStackEntry?.let {
+                        runCatching { it.toRoute<SeasonRoute>().seasonId == r.seasonId }
+                            .getOrDefault(false)
+                    } == true
+                } else currentRoute?.startsWith(r::class.qualifiedName.orEmpty()) == true
+            else -> currentRoute?.startsWith(r::class.qualifiedName.orEmpty()) == true
         }
 
     // Matched by prefix since some pre-auth routes carry args (e.g. LoginRoute(username)), whose
@@ -354,8 +455,9 @@ fun NavigationRoot(
                         }
                     },
                     icon = {
-                        Icon(
-                            painter = painterResource(item.icon),
+                        NavigationBarIcon(
+                            imageUri = item.imageUri.takeIf { item.showImage },
+                            iconRes = item.icon,
                             contentDescription = item.resolvedTitle(),
                         )
                     },
@@ -476,6 +578,20 @@ fun NavigationRoot(
                             )
                         )
                     },
+                )
+            }
+            composable<FavoritesRoute> {
+                MediaItemsScreen(
+                    kind = MediaItemsKind.FAVORITES,
+                    navigateBack = { navigateHome(navController) },
+                    onItemClick = { item -> navigateToItem(navController, item) },
+                )
+            }
+            composable<NextUpRoute> {
+                MediaItemsScreen(
+                    kind = MediaItemsKind.NEXT_UP,
+                    navigateBack = { navigateHome(navController) },
+                    onItemClick = { item -> navigateToItem(navController, item) },
                 )
             }
             composable<DownloadsRoute> {
@@ -785,11 +901,17 @@ fun NavigationRoot(
                         navController.safeNavigate(ProfileDetailRoute(profileId = profileId))
                     },
                     navigateToHomeLayout = { navController.safeNavigate(HomeLayoutSettingsRoute) },
+                    navigateToNavigationBar = {
+                        navController.safeNavigate(NavigationBarSettingsRoute)
+                    },
                     navigateBack = { navController.safePopBackStack() },
                 )
             }
             composable<HomeLayoutSettingsRoute> {
                 HomeLayoutSettingsScreen(navigateBack = { navController.safePopBackStack() })
+            }
+            composable<NavigationBarSettingsRoute> {
+                NavigationBarSettingsScreen(navigateBack = { navController.safePopBackStack() })
             }
             composable<BackupSettingsRoute> {
                 BackupSettingsScreen(

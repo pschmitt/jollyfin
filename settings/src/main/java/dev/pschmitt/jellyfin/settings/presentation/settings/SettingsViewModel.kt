@@ -147,6 +147,22 @@ constructor(
                                                     options = R.array.theme,
                                                     optionValues = R.array.theme_values,
                                                 ),
+                                                PreferenceCategory(
+                                                    nameStringResource =
+                                                        R.string.settings_category_navigation_bar,
+                                                    descriptionStringRes =
+                                                        R.string.settings_navigation_bar_summary,
+                                                    iconDrawableId = R.drawable.ic_list,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    onClick = {
+                                                        viewModelScope.launch {
+                                                            eventsChannel.send(
+                                                                SettingsEvent
+                                                                    .NavigateToNavigationBar
+                                                            )
+                                                        }
+                                                    },
+                                                ),
                                                 PreferenceSwitch(
                                                     nameStringResource = R.string.dynamic_colors,
                                                     descriptionStringRes =

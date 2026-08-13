@@ -29,6 +29,11 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val homeDiscover = Preference<Boolean>("home_discover", true)
     val homeSectionOrder = Preference<String?>("pref_home_section_order", null)
     val homeHiddenSections = Preference<String?>("pref_home_hidden_sections", null)
+    // Optional navbar destinations are hidden by default so upgrades retain the existing navbar.
+    val navigationBarOrder = Preference<String?>("pref_navigation_bar_order", null)
+    val navigationBarHiddenItems =
+        Preference<String?>("pref_navigation_bar_hidden_items", "favorites,next_up,settings")
+    val navigationBarPinnedItems = Preference<String?>("pref_navigation_bar_pinned_items", null)
     val dateFormat = Preference("pref_date_format", "system")
 
     // Player

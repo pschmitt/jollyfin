@@ -186,6 +186,7 @@
     <string name="profile_select_server_hint">Choose a server, or add a new one below</string>
     <string name="profile_login_new_user_hint">Log in to create the new profile</string>
     <string name="download_paused">Paused</string>
+    <string name="download_paused_by_battery_saver">Paused by battery saver</string>
     <string name="download_awaiting_foreground">Paused - open the app to resume</string>
     <string name="download_downloading">Downloading…</string>
     <string name="download_failed">Failed to download</string>

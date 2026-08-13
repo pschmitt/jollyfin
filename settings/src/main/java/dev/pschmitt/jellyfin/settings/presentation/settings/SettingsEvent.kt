@@ -19,6 +19,8 @@ sealed interface SettingsEvent {
 
     data object NavigateToHomeLayout : SettingsEvent
 
+    data object NavigateToNavigationBar : SettingsEvent
+
     data object NavigateToAbout : SettingsEvent
 
     data object NavigateToAutoDownloadRules : SettingsEvent

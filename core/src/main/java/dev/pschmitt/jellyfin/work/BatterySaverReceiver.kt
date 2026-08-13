@@ -27,20 +27,36 @@ class BatterySaverReceiver : BroadcastReceiver() {
 
     @Inject lateinit var appPreferences: AppPreferences
 
+    companion object {
+        suspend fun reconcile(
+            isPowerSaveMode: Boolean,
+            downloader: Downloader,
+            appPreferences: AppPreferences,
+        ) {
+            if (isPowerSaveMode) {
+                if (appPreferences.getValue(appPreferences.pauseDownloadsOnBatterySaver)) {
+                    downloader.pauseAllForBatterySaver()
+                }
+            } else {
+                // Turning this preference off must not strand downloads that were already marked
+                // as paused by battery saver.
+                downloader.resumeBatterySaverPausedDownloads()
+            }
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != PowerManager.ACTION_POWER_SAVE_MODE_CHANGED) return
-        if (!appPreferences.getValue(appPreferences.pauseDownloadsOnBatterySaver)) return
         val powerManager = context.getSystemService(PowerManager::class.java) ?: return
         val isPowerSaveMode = powerManager.isPowerSaveMode
+        val pauseOnBatterySaver =
+            appPreferences.getValue(appPreferences.pauseDownloadsOnBatterySaver)
+        if (isPowerSaveMode && !pauseOnBatterySaver) return
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                if (isPowerSaveMode) {
-                    downloader.pauseAllForBatterySaver()
-                } else {
-                    downloader.resumeBatterySaverPausedDownloads()
-                }
+                reconcile(isPowerSaveMode, downloader, appPreferences)
             } finally {
                 pendingResult.finish()
             }

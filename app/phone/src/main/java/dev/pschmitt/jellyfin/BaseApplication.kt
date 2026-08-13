@@ -1,9 +1,13 @@
 package dev.pschmitt.jellyfin
 
 import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.PowerManager
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -35,6 +39,7 @@ import dev.pschmitt.jellyfin.utils.Downloader
 import dev.pschmitt.jellyfin.work.AutoBackupScheduler
 import dev.pschmitt.jellyfin.work.AutoDeleteWatchedWorker
 import dev.pschmitt.jellyfin.work.AutoDownloadWorker
+import dev.pschmitt.jellyfin.work.BatterySaverReceiver
 import dev.pschmitt.jellyfin.work.ForegroundDownloadResumer
 import dev.pschmitt.jellyfin.work.MpvCleanupWorker
 import dev.pschmitt.jellyfin.work.NewItemNotificationWorker
@@ -65,6 +70,29 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
     @Inject lateinit var localControlServer: LocalControlServer
 
     @Inject lateinit var profileMigrationRunner: ProfileMigrationRunner
+
+    private val batterySaverReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: Intent) {
+                if (intent.action != PowerManager.ACTION_POWER_SAVE_MODE_CHANGED) return
+
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val powerManager = context.getSystemService(PowerManager::class.java)
+                        if (powerManager != null) {
+                            BatterySaverReceiver.reconcile(
+                                powerManager.isPowerSaveMode,
+                                downloader,
+                                appPreferences,
+                            )
+                        }
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            }
+        }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -123,17 +151,27 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         QueueStatusScheduler.schedule(applicationContext, appPreferences, pvrConfigResolver)
         RemoteConfigScheduler.schedule(applicationContext)
         localControlServer.startIfEnabled()
-        pauseDownloadsIfBatterySaverAlreadyOn()
+        ContextCompat.registerReceiver(
+            this,
+            batterySaverReceiver,
+            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        synchronizeBatterySaverDownloads()
         ForegroundDownloadResumer(downloader).start()
     }
 
-    // BatterySaverReceiver only reacts to the moment power-save mode changes - if it was already
-    // on before the app process started, no broadcast fires to tell us, so check once at startup.
-    private fun pauseDownloadsIfBatterySaverAlreadyOn() {
-        if (!appPreferences.getValue(appPreferences.pauseDownloadsOnBatterySaver)) return
+    // BatterySaverReceiver only reacts to power-save mode changes. Reconcile both directions at
+    // startup as the process may have been dead when the broadcast was sent.
+    private fun synchronizeBatterySaverDownloads() {
         val powerManager = getSystemService(PowerManager::class.java) ?: return
-        if (!powerManager.isPowerSaveMode) return
-        CoroutineScope(Dispatchers.IO).launch { downloader.pauseAllForBatterySaver() }
+        CoroutineScope(Dispatchers.IO).launch {
+            BatterySaverReceiver.reconcile(
+                powerManager.isPowerSaveMode,
+                downloader,
+                appPreferences,
+            )
+        }
     }
 
     @OptIn(ExperimentalCoilApi::class, ExperimentalTime::class)

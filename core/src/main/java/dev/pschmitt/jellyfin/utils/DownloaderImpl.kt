@@ -217,7 +217,7 @@ class DownloaderImpl(
         for (sourceDto in database.getAllSources()) {
             if (sourceDto.downloadId == null) continue
             if (downloadQueueRepository.pendingRequest(sourceDto.id) != null) {
-                downloadQueueRepository.cancel(sourceDto.id)
+                downloadQueueRepository.cancel(sourceDto.id, pausedByBatterySaver = true)
                 database.setSourcePausedByBatterySaver(sourceDto.id, true)
             }
         }
@@ -226,9 +226,14 @@ class DownloaderImpl(
     override suspend fun resumeBatterySaverPausedDownloads() {
         for (sourceDto in database.getAllSources()) {
             val downloadId = sourceDto.downloadId
-            if (!sourceDto.pausedByBatterySaver || downloadId == null) continue
-            database.setSourcePausedByBatterySaver(sourceDto.id, false)
-            resumeDownload(downloadId)
+            if (!sourceDto.pausedByBatterySaver) continue
+            if (downloadId == null) {
+                database.setSourcePausedByBatterySaver(sourceDto.id, false)
+                continue
+            }
+            if (resumeDownload(downloadId) == null) {
+                database.setSourcePausedByBatterySaver(sourceDto.id, false)
+            }
         }
     }
 

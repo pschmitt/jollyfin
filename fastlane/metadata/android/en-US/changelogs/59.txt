@@ -1,0 +1,2 @@
+Fixed:
+- Battery-saver auto-pause now reliably triggers on real devices and resumes downloads when saver turns off.

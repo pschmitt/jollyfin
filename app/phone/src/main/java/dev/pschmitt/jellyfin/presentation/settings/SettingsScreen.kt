@@ -77,6 +77,7 @@ fun SettingsScreen(
     navigateToProfiles: () -> Unit,
     navigateToProfileDetail: (profileId: String) -> Unit,
     navigateToHomeLayout: () -> Unit,
+    navigateToNavigationBar: () -> Unit,
     navigateBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -104,6 +105,7 @@ fun SettingsScreen(
             is SettingsEvent.NavigateToProfiles -> navigateToProfiles()
             is SettingsEvent.NavigateToProfileDetail -> navigateToProfileDetail(event.profileId)
             is SettingsEvent.NavigateToHomeLayout -> navigateToHomeLayout()
+            is SettingsEvent.NavigateToNavigationBar -> navigateToNavigationBar()
             is SettingsEvent.UpdateTheme -> {
                 val uiModeManager = context.getSystemService(UiModeManager::class.java)
                 val nightMode =

@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.pschmitt.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
+import dev.pschmitt.jellyfin.models.JollyfinSourceType
 import dev.pschmitt.jellyfin.models.PvrSource
 import dev.pschmitt.jellyfin.models.QueueStatus
 import dev.pschmitt.jellyfin.models.isDownloaded
@@ -67,7 +68,13 @@ fun EpisodeCard(
                 if (episode.isDownloaded()) {
                     DownloadedBadge()
                 } else if (downloadProgress != null) {
-                    DownloadingBadge(progress = downloadProgress)
+                    DownloadingBadge(
+                        progress = downloadProgress,
+                        isPausedByBatterySaver =
+                            episode.sources
+                                .firstOrNull { it.type == JollyfinSourceType.LOCAL }
+                                ?.pausedByBatterySaver == true,
+                    )
                 } else if (queueStatus != null) {
                     QueueBadge(status = queueStatus)
                 }

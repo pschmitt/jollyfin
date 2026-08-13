@@ -2004,3 +2004,52 @@ deployed.
 Status: **done** (2026-08-09) - policy and in-app link updates implemented; all 36 Android string
 XML files parsed successfully, `git diff --check` passed, and stale upstream privacy URLs were
 removed.
+
+## FINDROID-76: Resume battery-saver-paused downloads and show their cause
+
+- [x] Resume downloads marked by the battery-saver pause flow when power saver turns off, including
+      after the app process was restarted.
+- [x] Preserve the distinction between battery-saver pauses and user pauses in the download model
+      and show a battery-saver icon beside the paused status.
+- [x] Register the power-save broadcast dynamically so Android delivers it on real devices.
+- [x] Verify with remote formatting, compilation, and unit tests.
+- [x] Bump the patch release from 2.14.2 (57) to 2.14.3 (58), including the English changelog.
+- [x] Bump the follow-up fix release to 2.14.4 (59), including the English changelog, and redeploy.
+
+Status: **done** (2026-08-11) - `ktfmtCheck`, `data`/`core` unit tests, and the signed
+`assembleLibreRelease` build passed remotely on rofl-14; release 2.14.4 (59) installed successfully
+on px5 and Mi Pad 4 without uninstalling either app. On px5, a real 2.2 GiB download changed to
+`Paused` with the battery-saver indicator when saver was enabled, resumed with live progress when
+it was disabled, and a manually paused download remained paused across the same toggle. Temporary
+test media was cancelled afterward; both devices were restored to saver OFF and normal charging.
+
+## FINDROID-77: Customize the navigation bar
+
+- [x] Add Appearance settings for reordering, hiding, and restoring navigation destinations without
+      changing the current default layout.
+- [x] Support Home, Media/libraries, Downloads, Calendar, Favorites, Next Up, and Settings as
+      configurable destinations, while retaining dynamic library availability and offline-mode
+      behavior.
+- [x] Keep the persisted format forward-compatible with future pinned show/episode destinations.
+- [x] Verify remote production compilation and install on the connected ASUS device, Mi Pad 4,
+      and Pixel 5.
+- [ ] Run the separate remote ktfmt and unit-test checks.
+
+Status: mostly done (2026-08-12) - production APK 2.14.4/versionCode 59 built on `rofl-14` and
+installed successfully on all three attached devices; ktfmt and unit-test checks remain.
+
+## FINDROID-78: Improve custom navigation-bar search and presentation
+
+- [x] Search custom navbar destinations as the user types and show cover art in result rows.
+- [x] Give pinned media destinations editable short labels, with sensible acronym defaults.
+- [x] Render pinned cover art in the navbar with a generic-icon fallback.
+- [x] Backfill cover art for pins created before artwork persistence was added, while preserving
+      their existing custom labels.
+- [x] Add a per-item setting to show or hide cover art in the navbar.
+- [x] Show a live visual preview of the configured navbar on the settings page.
+- [x] Verify formatting, compilation, and relevant tests remotely.
+- [ ] Re-run the pinned formatter, phone compilation, and unit tests after the per-item cover-art
+      toggle and navbar preview changes when a remote build host is reachable.
+
+Status: in progress (2026-08-13) - per-item cover-art controls and the live navbar preview are
+implemented; remote verification is pending because rofl-13 and rofl-14 are currently unreachable.

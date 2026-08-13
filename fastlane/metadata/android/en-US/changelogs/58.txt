@@ -1,0 +1,2 @@
+Fixed downloads paused by battery saver not resuming when battery saver turns off.
+Manual pauses remain paused, and battery-saver-paused downloads now show a battery indicator.

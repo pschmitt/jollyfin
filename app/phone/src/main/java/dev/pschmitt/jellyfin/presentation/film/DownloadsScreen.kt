@@ -1421,6 +1421,11 @@ private fun DownloadRow(
     val activeProgress = progress?.takeIf { it.status != DownloadManager.STATUS_SUCCESSFUL }
     val isPending = activeProgress?.status == DownloadManager.STATUS_PENDING
     val isPaused = activeProgress?.status == DownloadManager.STATUS_PAUSED
+    val isPausedByBatterySaver =
+        activeProgress?.pausedByBatterySaver == true ||
+            item.sources
+                .firstOrNull { it.type == JollyfinSourceType.LOCAL }
+                ?.pausedByBatterySaver == true
     val isVerifying = activeProgress?.status == DownloadProgress.STATUS_VERIFYING
     // The download service couldn't promote itself to the foreground right now (app was fully
     // backgrounded) - it'll resume automatically on next foreground/API 34+ job wake, but tapping
@@ -1482,26 +1487,50 @@ private fun DownloadRow(
                 Spacer(modifier = Modifier.height(2.dp))
                 when {
                     activeProgress != null -> {
-                        Text(
-                            text =
-                                when {
-                                    isPending -> stringResource(CoreR.string.download_queued)
-                                    isPaused -> stringResource(CoreR.string.download_paused)
-                                    isAwaitingForeground ->
-                                        stringResource(CoreR.string.download_awaiting_foreground)
-                                    isVerifying -> stringResource(CoreR.string.download_verifying)
-                                    activeProgress.percent >= 0 ->
+                        if (isPaused && isPausedByBatterySaver) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(CoreR.string.download_paused),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Icon(
+                                    painter = painterResource(CoreR.drawable.ic_battery),
+                                    contentDescription =
                                         stringResource(
-                                            CoreR.string.download_progress_status,
-                                            activeProgress.percent,
-                                            formatDownloadSpeed(activeProgress.speedBytesPerSecond),
-                                            formatEta(activeProgress.etaSeconds),
-                                        )
-                                    else -> stringResource(CoreR.string.download_downloading)
-                                },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                                            CoreR.string.download_paused_by_battery_saver
+                                        ),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 4.dp).size(14.dp),
+                                )
+                            }
+                        } else {
+                            Text(
+                                text =
+                                    when {
+                                        isPending -> stringResource(CoreR.string.download_queued)
+                                        isPaused -> stringResource(CoreR.string.download_paused)
+                                        isAwaitingForeground ->
+                                            stringResource(
+                                                CoreR.string.download_awaiting_foreground
+                                            )
+                                        isVerifying ->
+                                            stringResource(CoreR.string.download_verifying)
+                                        activeProgress.percent >= 0 ->
+                                            stringResource(
+                                                CoreR.string.download_progress_status,
+                                                activeProgress.percent,
+                                                formatDownloadSpeed(
+                                                    activeProgress.speedBytesPerSecond
+                                                ),
+                                                formatEta(activeProgress.etaSeconds),
+                                            )
+                                        else -> stringResource(CoreR.string.download_downloading)
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (!isPending && !isAwaitingForeground) {
                             Spacer(modifier = Modifier.height(4.dp))
                             LinearProgressIndicator(
