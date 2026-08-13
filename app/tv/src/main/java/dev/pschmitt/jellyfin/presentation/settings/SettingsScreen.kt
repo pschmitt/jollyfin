@@ -66,6 +66,8 @@ fun SettingsScreen(
             // TV to react to.
             is SettingsEvent.NavigateToLocalAccess -> Unit
             is SettingsEvent.NavigateToBackupSettings -> Unit
+            // Navbar customization is phone-only for this pass - nothing for TV to react to.
+            is SettingsEvent.NavigateToNavigationBar -> Unit
             // QR device provisioning is phone-only (needs a camera) - nothing for TV to react to.
             is SettingsEvent.NavigateToQrExport -> Unit
             // Integrations settings are phone-only for this pass - nothing for TV to react to.
