@@ -2014,11 +2014,10 @@ removed.
 - [x] Register the power-save broadcast dynamically so Android delivers it on real devices.
 - [x] Verify with remote formatting, compilation, and unit tests.
 - [x] Bump the patch release from 2.14.2 (57) to 2.14.3 (58), including the English changelog.
-- [x] Bump the follow-up fix release to 2.14.4 (59), including the English changelog, and redeploy.
 
 Status: **done** (2026-08-11) - `ktfmtCheck`, `data`/`core` unit tests, and the signed
-`assembleLibreRelease` build passed remotely on rofl-14; release 2.14.4 (59) installed successfully
-on px5 and Mi Pad 4 without uninstalling either app. On px5, a real 2.2 GiB download changed to
+`assembleLibreRelease` build passed remotely on rofl-14; a 2.14.4 (59) test/deployment build was
+installed without uninstalling the apps. On px5, a real 2.2 GiB download changed to
 `Paused` with the battery-saver indicator when saver was enabled, resumed with live progress when
 it was disabled, and a manually paused download remained paused across the same toggle. Temporary
 test media was cancelled afterward; both devices were restored to saver OFF and normal charging.
