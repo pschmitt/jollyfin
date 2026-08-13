@@ -98,6 +98,21 @@ Repository instructions for AI coding agents working on JollyFin.
   pinned one (see the pre-commit note above) — and confirm with `just lint` before
   relying on it.
 
+## Releases
+
+- Before tagging/pushing a release (`vX.Y.Z`), run `just lint` and confirm it passes on the exact
+  commit being tagged. Do not tag a release on a commit with known-unformatted Kotlin. A failing
+  `Lint` workflow on a release tag doesn't block the `Release`/`Play Store Release` workflows (they
+  run independently), so a bad tag still ships — it just leaves CI red and forces a follow-up patch
+  release to fix formatting alone. This happened with 2.14.3: it shipped with a ktfmt violation
+  that had to be fixed in a separate 2.14.4 release.
+- Bumping `versionCode` back down (e.g. reverting an in-progress bump) is unsafe once any tag with
+  the higher code has already had its `Play Store Release` workflow succeed — Play Store rejects
+  any later upload whose `versionCode` isn't strictly greater than what's already on the track
+  (`You cannot rollout this release because it does not allow any existing users to upgrade`).
+  Check `gh run list` for a prior successful `Play Store Release` at the higher code before ever
+  lowering `Versions.kt`'s `APP_CODE`.
+
 ## Physical test device
 
 - A **Mi Pad 4** (`arm64-v8a`) is available for installing and checking debug builds.
