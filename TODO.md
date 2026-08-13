@@ -2064,6 +2064,9 @@ implemented; remote verification is pending because rofl-13 and rofl-14 are curr
       stay top-right.
 - [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
       compilation remotely on rofl-13.
+- [x] Build and install a signed release APK on the ASUS phone, Mi Pad 4, and px5.
+- [x] Bump the patch release from 2.14.3 (60) to 2.14.4 (61), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint`, `just test`, and
-`:app:phone:compileLibreDebugKotlin` all passed on rofl-13.
+`:app:phone:compileLibreDebugKotlin` all passed on rofl-13; a signed
+`assembleLibreRelease` build was installed on all three devices via adb.

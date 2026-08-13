@@ -1,0 +1,3 @@
+Fixed:
+- The offline (downloaded) badge now correctly shows on Next Up episodes that were already downloaded.
+- Moved the downloaded badge to the bottom-right corner of posters.
