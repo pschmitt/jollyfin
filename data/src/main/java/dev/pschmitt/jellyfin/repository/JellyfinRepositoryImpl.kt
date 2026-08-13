@@ -297,7 +297,7 @@ class JellyfinRepositoryImpl(
                 )
                 .content
                 .items
-                .mapNotNull { it.toJollyfinEpisode(this@JellyfinRepositoryImpl) }
+                .mapNotNull { it.toJollyfinEpisode(this@JellyfinRepositoryImpl, database) }
         }
 
     override suspend fun getEpisodes(

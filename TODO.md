@@ -2052,3 +2052,18 @@ installed successfully on all three attached devices; ktfmt and unit-test checks
 
 Status: in progress (2026-08-13) - per-item cover-art controls and the live navbar preview are
 implemented; remote verification is pending because rofl-13 and rofl-14 are currently unreachable.
+
+## FINDROID-79: Fix missing offline badge on Next Up and move it bottom-right
+
+- [x] Fix `JellyfinRepositoryImpl.getNextUp()` dropping the local-download `sources` merge (it
+      called `toJollyfinEpisode` without the `database` param, unlike every other home-feeding
+      query), which made `isDownloaded()` always return false for Next Up episodes and hid the
+      downloaded badge there even when the episode was on disk.
+- [x] Move the icon-only downloaded badge (`ItemCard`) from the top-right badge row to the
+      bottom-right corner of the poster, per user preference; the queue/played/count/new badges
+      stay top-right.
+- [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
+      compilation remotely on rofl-13.
+
+Status: **done** (2026-08-13) - `just lint`, `just test`, and
+`:app:phone:compileLibreDebugKotlin` all passed on rofl-13.

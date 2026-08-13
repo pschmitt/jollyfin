@@ -61,14 +61,19 @@ fun ItemCard(
                         Modifier.align(Alignment.TopEnd).padding(MaterialTheme.spacings.small),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
                 ) {
-                    if (item.isDownloaded()) {
-                        DownloadedBadge()
-                    } else if (queueStatus != null) {
+                    if (!item.isDownloaded() && queueStatus != null) {
                         QueueBadge(status = queueStatus)
                     }
                     if (item.played) PlayedBadge()
                     item.unplayedItemCount?.takeIf { it > 0 }?.let { ItemCountBadge(it) }
                     if (!item.played && item.isRecentlyAdded()) NewBadge()
+                }
+                if (item.isDownloaded()) {
+                    DownloadedBadge(
+                        modifier =
+                            Modifier.align(Alignment.BottomEnd)
+                                .padding(MaterialTheme.spacings.small)
+                    )
                 }
                 if (direction == Direction.HORIZONTAL) {
                     ProgressBar(
