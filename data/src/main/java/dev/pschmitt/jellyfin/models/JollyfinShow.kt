@@ -14,6 +14,11 @@ data class JollyfinShow(
     override val overview: String,
     override val sources: List<JollyfinSource>,
     val seasons: List<JollyfinSeason>,
+    // Whether any episode of this show has a completed local download - unlike [sources], which
+    // stays empty for a show (no single file backs a whole series), this drives the "available
+    // offline" badge on show posters without changing isDownloaded()/isDownloading() semantics
+    // that ItemButtonsBar and friends rely on for the show-level bulk download UI.
+    val hasDownloadedEpisodes: Boolean = false,
     override val played: Boolean,
     override val favorite: Boolean,
     override val canPlay: Boolean,
@@ -36,7 +41,10 @@ data class JollyfinShow(
     override val dateCreated: DateTime? = null,
 ) : JollyfinItem
 
-fun BaseItemDto.toJollyfinShow(jellyfinRepository: JellyfinRepository): JollyfinShow {
+fun BaseItemDto.toJollyfinShow(
+    jellyfinRepository: JellyfinRepository,
+    database: ServerDatabaseDao? = null,
+): JollyfinShow {
     return JollyfinShow(
         id = id,
         name = name.orEmpty(),
@@ -48,6 +56,7 @@ fun BaseItemDto.toJollyfinShow(jellyfinRepository: JellyfinRepository): Jollyfin
         canDownload = canDownload == true,
         unplayedItemCount = userData?.unplayedItemCount,
         sources = emptyList(),
+        hasDownloadedEpisodes = database?.let { hasDownloadedEpisode(it, id) } ?: false,
         seasons = emptyList(),
         genres = genres ?: emptyList(),
         people = people?.map { it.toJollyfinPerson(jellyfinRepository) } ?: emptyList(),
@@ -80,6 +89,7 @@ fun JollyfinShowDto.toJollyfinShow(database: ServerDatabaseDao, userId: UUID): J
         canDownload = false,
         unplayedItemCount = null,
         sources = emptyList(),
+        hasDownloadedEpisodes = hasDownloadedEpisode(database, id),
         seasons = emptyList(),
         genres = emptyList(),
         people = emptyList(),
@@ -93,4 +103,15 @@ fun JollyfinShowDto.toJollyfinShow(database: ServerDatabaseDao, userId: UUID): J
         images = toLocalJollyfinImages(itemId = id),
         tvdbId = tvdbId,
     )
+}
+
+// Batch-checks via getSourcesForItems (see its kdoc) instead of calling getSources per episode -
+// a show can have many locally-known episodes once auto-download rules or manual downloads pile
+// up over time.
+private fun hasDownloadedEpisode(database: ServerDatabaseDao, seriesId: UUID): Boolean {
+    val episodeIds = database.getEpisodesByShowId(seriesId).map { it.id }
+    if (episodeIds.isEmpty()) return false
+    return database.getSourcesForItems(episodeIds).any {
+        it.type == JollyfinSourceType.LOCAL && !it.path.endsWith(".download")
+    }
 }

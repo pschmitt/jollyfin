@@ -2070,3 +2070,27 @@ implemented; remote verification is pending because rofl-13 and rofl-14 are curr
 Status: **done** (2026-08-13) - `just lint`, `just test`, and
 `:app:phone:compileLibreDebugKotlin` all passed on rofl-13; a signed
 `assembleLibreRelease` build was installed on all three devices via adb.
+
+## FINDROID-80: Show the offline badge on show posters too (e.g. "Latest Shows")
+
+- [x] `JollyfinShow.sources` is always empty (no single file backs a whole series), and the shared
+      `BaseItemDto.toJollyfinItem` dispatcher never passed `database` through to `toJollyfinShow`
+      in the first place, so `isDownloaded()` could never be true for a show poster - "Latest
+      Shows" and any other show-poster row never showed the badge even when episodes were
+      downloaded.
+- [x] Add `JollyfinShow.hasDownloadedEpisodes`, computed via a batched
+      `getEpisodesByShowId`/`getSourcesForItems` lookup (same pattern as
+      `ShowViewModel.downloadsSizeBytes`), instead of repurposing `sources`/`isDownloaded()` -
+      `ItemButtonsBar` reads `item.isDownloaded()` directly on the show item to decide between the
+      bulk-download flow and a single "Delete download" button, so redefining `sources` for shows
+      would have broken that screen.
+- [x] Thread `database` through `toJollyfinShow` (both the online and offline-DB-row mapping
+      functions) and the `toJollyfinItem` dispatcher's `SERIES` branch.
+- [x] `ItemCard` now badges a poster when either `item.isDownloaded()` or (for shows)
+      `hasDownloadedEpisodes` is true.
+- [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
+      compilation remotely on rofl-13.
+
+Status: **done** (2026-08-13) - `just lint`, `just test`, and `:app:phone:compileLibreDebugKotlin`
+all passed on rofl-13. Scoped to the phone app's home dashboard, matching what was reported; the TV
+app's separate `ItemCard`/`isDownloaded()` usage was left untouched.

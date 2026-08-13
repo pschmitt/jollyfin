@@ -92,7 +92,7 @@ class JellyfinRepositoryImpl(
             jellyfinApi.userLibraryApi
                 .getItem(itemId, jellyfinApi.userId!!)
                 .content
-                .toJollyfinShow(this@JellyfinRepositoryImpl)
+                .toJollyfinShow(this@JellyfinRepositoryImpl, database)
         }
 
     override suspend fun getSeason(itemId: UUID): JollyfinSeason =

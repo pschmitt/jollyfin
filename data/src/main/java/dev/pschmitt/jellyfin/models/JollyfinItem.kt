@@ -40,7 +40,7 @@ suspend fun BaseItemDto.toJollyfinItem(
         BaseItemKind.MOVIE -> toJollyfinMovie(jellyfinRepository, serverDatabase)
         BaseItemKind.EPISODE -> toJollyfinEpisode(jellyfinRepository)
         BaseItemKind.SEASON -> toJollyfinSeason(jellyfinRepository)
-        BaseItemKind.SERIES -> toJollyfinShow(jellyfinRepository)
+        BaseItemKind.SERIES -> toJollyfinShow(jellyfinRepository, serverDatabase)
         BaseItemKind.BOX_SET -> toJollyfinBoxSet(jellyfinRepository)
         BaseItemKind.FOLDER -> toJollyfinFolder(jellyfinRepository)
         else -> null

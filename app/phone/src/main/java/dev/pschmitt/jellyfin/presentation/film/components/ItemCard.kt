@@ -26,6 +26,7 @@ import dev.pschmitt.jellyfin.core.presentation.dummy.dummyEpisode
 import dev.pschmitt.jellyfin.core.presentation.dummy.dummyMovie
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
 import dev.pschmitt.jellyfin.models.JollyfinItem
+import dev.pschmitt.jellyfin.models.JollyfinShow
 import dev.pschmitt.jellyfin.models.QueueStatus
 import dev.pschmitt.jellyfin.models.isDownloaded
 import dev.pschmitt.jellyfin.models.isRecentlyAdded
@@ -45,6 +46,10 @@ fun ItemCard(
             Direction.HORIZONTAL -> 260
             Direction.VERTICAL -> 150
         }
+    // A show has no sources of its own (see JollyfinShow.hasDownloadedEpisodes), so
+    // isDownloaded() alone would never badge a show poster even when episodes are on disk.
+    val isAvailableOffline =
+        item.isDownloaded() || (item as? JollyfinShow)?.hasDownloadedEpisodes == true
     Column(
         modifier =
             modifier
@@ -61,14 +66,14 @@ fun ItemCard(
                         Modifier.align(Alignment.TopEnd).padding(MaterialTheme.spacings.small),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
                 ) {
-                    if (!item.isDownloaded() && queueStatus != null) {
+                    if (!isAvailableOffline && queueStatus != null) {
                         QueueBadge(status = queueStatus)
                     }
                     if (item.played) PlayedBadge()
                     item.unplayedItemCount?.takeIf { it > 0 }?.let { ItemCountBadge(it) }
                     if (!item.played && item.isRecentlyAdded()) NewBadge()
                 }
-                if (item.isDownloaded()) {
+                if (isAvailableOffline) {
                     DownloadedBadge(
                         modifier =
                             Modifier.align(Alignment.BottomEnd)
