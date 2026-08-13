@@ -2090,6 +2090,7 @@ Status: **done** (2026-08-13) - `just lint`, `just test`, and
       `hasDownloadedEpisodes` is true.
 - [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
       compilation remotely on rofl-13.
+- [x] Bump the patch release from 2.14.4 (61) to 2.14.5 (62), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint`, `just test`, and `:app:phone:compileLibreDebugKotlin`
 all passed on rofl-13. Scoped to the phone app's home dashboard, matching what was reported; the TV

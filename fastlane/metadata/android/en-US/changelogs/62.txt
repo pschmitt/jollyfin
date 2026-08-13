@@ -1,0 +1,2 @@
+Fixed:
+- The offline (downloaded) badge now also shows on show posters (e.g. "Latest Shows") when at least one episode of that show is downloaded.
