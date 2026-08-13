@@ -1,0 +1,2 @@
+Fixed:
+- The offline (downloaded) badge now correctly shows on episode thumbnails in the "Latest Shows" home row.

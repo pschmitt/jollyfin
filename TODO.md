@@ -2106,5 +2106,6 @@ app's separate `ItemCard`/`isDownloaded()` usage was left untouched.
       else built on `getLatestMedia`/`toJollyfinItem` for episodes.
 - [x] Pass `serverDatabase` through the `EPISODE` branch, matching `MOVIE`/`SERIES`.
 - [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`) remotely on rofl-13.
+- [x] Bump the patch release from 2.14.5 (62) to 2.14.6 (63), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint` and `just test` passed on rofl-13.
