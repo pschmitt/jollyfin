@@ -38,7 +38,7 @@ suspend fun BaseItemDto.toJollyfinItem(
 ): JollyfinItem? {
     return when (type) {
         BaseItemKind.MOVIE -> toJollyfinMovie(jellyfinRepository, serverDatabase)
-        BaseItemKind.EPISODE -> toJollyfinEpisode(jellyfinRepository)
+        BaseItemKind.EPISODE -> toJollyfinEpisode(jellyfinRepository, serverDatabase)
         BaseItemKind.SEASON -> toJollyfinSeason(jellyfinRepository)
         BaseItemKind.SERIES -> toJollyfinShow(jellyfinRepository, serverDatabase)
         BaseItemKind.BOX_SET -> toJollyfinBoxSet(jellyfinRepository)

@@ -2095,3 +2095,16 @@ Status: **done** (2026-08-13) - `just lint`, `just test`, and
 Status: **done** (2026-08-13) - `just lint`, `just test`, and `:app:phone:compileLibreDebugKotlin`
 all passed on rofl-13. Scoped to the phone app's home dashboard, matching what was reported; the TV
 app's separate `ItemCard`/`isDownloaded()` usage was left untouched.
+
+## FINDROID-81: Fix missing offline badge on "Latest Shows" episode thumbnails
+
+- [x] The server's `Latest` endpoint returns Episode items (not Series) for a TV library's "Latest"
+      row by default, so FINDROID-80's `SERIES` branch fix didn't cover what's actually shown
+      there. The `toJollyfinItem` dispatcher's `EPISODE` branch had the same bug as FINDROID-79's
+      `getNextUp` (dropped `database` when calling `toJollyfinEpisode`), so `isDownloaded()` stayed
+      false for every episode reached through this shared dispatcher - "Latest Shows" and anything
+      else built on `getLatestMedia`/`toJollyfinItem` for episodes.
+- [x] Pass `serverDatabase` through the `EPISODE` branch, matching `MOVIE`/`SERIES`.
+- [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`) remotely on rofl-13.
+
+Status: **done** (2026-08-13) - `just lint` and `just test` passed on rofl-13.
