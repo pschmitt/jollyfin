@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.presentation.settings.navigation
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -234,8 +234,7 @@ private fun NavigationBarSettingsScreenLayout(
                         trailingDescription =
                             stringResource(SettingsR.string.settings_navigation_bar_add),
                         showMoveButtons = false,
-                        imageUri =
-                            (item.images.primary ?: item.images.showPrimary)?.toString(),
+                        imageUri = (item.images.primary ?: item.images.showPrimary)?.toString(),
                         iconModifier = Modifier.size(48.dp, 72.dp),
                     )
                 }
