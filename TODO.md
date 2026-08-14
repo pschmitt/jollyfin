@@ -2109,3 +2109,9 @@ app's separate `ItemCard`/`isDownloaded()` usage was left untouched.
 - [x] Bump the patch release from 2.14.5 (62) to 2.14.6 (63), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint` and `just test` passed on rofl-13.
+
+<!--
+Entries above use the FINDROID-N prefix from before the Jollyfin rename (see FINDROID-72) and
+keep it as a historical record - they are not renumbered. Entries below use JF-N, starting at 82.
+See AGENTS.md's "Task tracking" section.
+-->
