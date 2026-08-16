@@ -96,7 +96,7 @@ jobs:
           # (captureE2eScreenshot, written straight to the app's external files dir) while still
           # preserving the real exit code of the capture itself.
           script: |
-            bash <(curl -fsSL https://raw.githubusercontent.com/pschmitt/android-app-ci/main/scripts/wait-for-android-emulator.sh)
+            curl -fsSL https://raw.githubusercontent.com/pschmitt/android-app-ci/main/scripts/wait-for-android-emulator.sh | bash
             adb reverse tcp:8096 tcp:8096
             serial="$(adb devices | awk '$2 == "device" { print $1; exit }')" && test -n "$serial" && adb -s "$serial" install -r -g -t dist/phone-libre-x86_64-debug.apk && SCREENGRAB_DEVICE_TYPE=${{ matrix.device_type }} SCREENGRAB_SPECIFIC_DEVICE="$serial" fastlane screengrab; rc=$?; mkdir -p dist/failure-screenshots; adb -s "$serial" pull /sdcard/Android/data/dev.pschmitt.jollyfin.debug/files/e2e-screenshots dist/failure-screenshots >/dev/null 2>&1 || true; exit $rc
 

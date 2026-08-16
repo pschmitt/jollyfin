@@ -26,9 +26,17 @@ mipad_abi := env_var_or_default("MIPAD_ABI", "arm64-v8a")
 # build under test for screenshots, and appears to be a pre-existing typo there regardless).
 play_package := "dev.pschmitt.jollyfin"
 
-# List all available recipes
+# List all available recipes. Must stay the first recipe in this file (not just the first line
+# overall) - `just` only considers recipes written directly here, not ones pulled in via the
+# import below, when deciding what a bare `just` invocation runs.
 default:
     @just --list
+
+# Recipes shared across the app fleet (format, nix-fmt, nix-lint, screenshots-upload) - see
+# pschmitt/android-app-ci's just/common.just for the source of truth. Vendored (not a submodule -
+# see that repo's README) as .just/common.just; `just update-common` (defined at the bottom of
+# this file) refreshes it.
+import '.just/common.just'
 
 # --- Remote build (rofl-13 / rofl-14) -------------------------------------
 
@@ -205,23 +213,6 @@ deploy *flags:
     just build-fetch {{flags}}
     just mipad-install "{{local_dist}}/${variant}-libre-${abi}-${flavor}.apk"
 
-# --- Formatting / hooks ----------------------------------------------------
-
-# Format Kotlin sources locally with ktfmt (lightweight - not a Gradle build,
-# safe to run on this machine). CAUTION: this is nixpkgs' standalone ktfmt,
-# which is a newer version than the one CI actually uses (see
-# gradle/libs.versions.toml) - the two format some constructs differently.
-# Treat this as an advisory quick pass, not a substitute for `just lint`.
-format:
-    ktfmt --kotlinlang-style $(git ls-files '*.kt' '*.kts')
-
-# Nix formatting/lint for this repo's flake.nix (per global AI context rules)
-nix-fmt:
-    nixfmt flake.nix
-
-nix-lint:
-    nix develop --command statix check
-
 # --- Play Store screenshot fixture (FINDROID-71) ----------------------------
 
 # Fetch the small, official Creative-Commons trailer clips the Jellyfin screenshot fixture
@@ -241,61 +232,8 @@ jellyfin-fixture-down:
 
 # --- Play Console uploads ---------------------------------------------------
 
-# Upload the generated screenshots to the Play Console listing. Deliberately separate from
-# capturing them: review the images (build artifact, or the PR screenshots.yaml opens with
-# open_pr) before this ever runs. Replaces each bucket's existing images with the local set rather
-# than appending to it (see the delete-all call below) - the locally generated set is always the
-# authoritative "current" one.
-screenshots-upload:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    image_dir="fastlane/metadata/android"
-    shopt -s nullglob
-    image_types=(phoneScreenshots sevenInchScreenshots tenInchScreenshots)
-    found_images=0
-    for image_type in "${image_types[@]}"
-    do
-      image_glob=("$image_dir"/en-US/images/"$image_type"/*)
-      if [[ ${#image_glob[@]} -gt 0 ]]
-      then
-        found_images=1
-      fi
-    done
-    if [[ "$found_images" -eq 0 ]]
-    then
-      printf 'No generated screenshots found under %s\n' "$image_dir" >&2
-      exit 1
-    fi
-    if ! command -v gpc >/dev/null
-    then
-      printf 'gpc (playconsole-cli) is required for Play Console uploads\n' >&2
-      exit 1
-    fi
-    if ! gpc apps list --output json | rg -q '"package_name":"{{play_package}}"'
-    then
-      printf 'Play Console package %s was not found via `gpc apps list`\n' "{{play_package}}" >&2
-      exit 1
-    fi
-    for image_type in "${image_types[@]}"
-    do
-      image_glob=("$image_dir"/en-US/images/"$image_type"/*)
-      [[ ${#image_glob[@]} -gt 0 ]] || continue
-      # Delete existing images of this type first: gpc's upload only ever appends, so re-running
-      # this against a bucket that already has images (a prior manual upload, or just re-running
-      # after a fresh capture) silently piles up duplicates instead of replacing them - confirmed
-      # live, twice, once as literal duplicate screenshots and once by exceeding Play's 8-per-
-      # language screenshot cap outright. The locally generated set is always the authoritative
-      # "current" one, so start from empty every time instead.
-      gpc --package {{play_package}} images delete-all --locale en-US --type "$image_type" --confirm
-      for image in "${image_glob[@]}"
-      do
-        printf 'Uploading %s\n' "$image"
-        gpc --package {{play_package}} images upload \
-          --locale en-US \
-          --type "$image_type" \
-          --file "$image"
-      done
-    done
+# screenshots-upload is now provided by the shared import above (was byte-for-byte identical to
+# nyetbox's, minus the >8-screenshots-per-language cap - now gets that fix here too).
 
 # Upload the already-committed icon (fastlane/metadata/android/en-US/images/icon.png) to the Play
 # Console listing. Not locale-scoped, so kept separate from the screenshot upload above.
@@ -349,3 +287,10 @@ play-feature-graphic-upload:
       --locale en-US \
       --type featureGraphic \
       --file "$graphic"
+
+# --- Shared recipes (pschmitt/android-app-ci) -------------------------------
+
+# Refresh the vendored copy of pschmitt/android-app-ci's shared recipes (format, nix-fmt,
+# nix-lint, screenshots-upload - see the `import` near the top of this file).
+update-common:
+    curl -fsSL https://raw.githubusercontent.com/pschmitt/android-app-ci/main/just/common.just -o .just/common.just
