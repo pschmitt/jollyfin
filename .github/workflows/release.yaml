@@ -1,12 +1,10 @@
 name: Release
 
 # One pipeline, two release flavors depending on what got pushed:
-# - a push to main moves the rolling "latest" prerelease tag and republishes it (debug + release
-#   APKs, always prerelease, never the repo's "Latest release" badge)
-# - a push of a "vX.Y.Z" tag publishes a real, permanent release at that tag (release APKs only,
-#   becomes the repo's "Latest release")
-# Both need the identical build/sign/verify/checksum pipeline, so it's one job with a branch
-# partway through rather than two workflows that would only drift apart over time.
+# - a push to main moves the rolling "latest" prerelease tag and republishes it
+# - a push of a "vX.Y.Z" tag publishes a real, permanent release
+# Delegates to pschmitt/android-app-ci's reusable release workflow, called with jollyfin's
+# phone+tv module layout (8 APKs total instead of a single module's 4).
 
 on:
   push:
@@ -16,245 +14,39 @@ on:
       - v*
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: write
-  actions: write
-  # For actions/attest-build-provenance: id-token to mint the OIDC token needed for a Sigstore
-  # signing certificate, attestations to persist the resulting attestation against the repo.
-  id-token: write
-  attestations: write
-
 jobs:
   release:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          # Exact patch pin (not a floating '21') so the toolchain that produces a release is
-          # reproducible run-to-run instead of silently drifting to whatever Temurin 21.x build
-          # happens to be current when the workflow executes - see REPRODUCIBLE_BUILDS.md. This is
-          # Temurin's own patch numbering, which lags nixpkgs' OpenJDK slightly - it does not need
-          # to match the Nix dev shell's JDK patch (21.0.12) exactly, see the "Known gaps" section.
-          java-version: '21.0.11'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      - name: Decode CI signing keystore
-        id: ci_keystore
-        uses: timheuer/base64-to-file@v2
-        with:
-          fileName: 'jollyfin-ci.jks'
-          encodedString: ${{ secrets.CI_KEYSTORE_BASE64 }}
-
-      - name: Determine release parameters
-        # A pushed "vX.Y.Z" tag gets its own permanent release; anything else (a main push, or a
-        # manual dispatch off main) republishes the rolling "latest" prerelease instead.
-        id: params
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            {
-              echo "tag_name=${{ github.ref_name }}"
-              echo "release_name=${{ github.ref_name }}"
-              echo "include_debug=false"
-              echo "move_tag=false"
-              echo "vacuum_stale_assets=false"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "tag_name=latest"
-              echo "release_name=Latest build"
-              echo "include_debug=true"
-              echo "move_tag=true"
-              echo "vacuum_stale_assets=true"
-            } >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Compute git revision
-        id: git_revision
-        run: echo "value=$(git describe --always --abbrev=12 --dirty)" >> "$GITHUB_OUTPUT"
-
-      - name: Build APKs
-        # Scoped to the app modules specifically (not a bare assembleRelease) - building every
-        # library module's standalone release AAR pulls in verifyReleaseResources, which fails on
-        # ?attr/colorControlNormal lookups that only resolve inside a themed app context.
-        run: >
-          ./gradlew
-          ${{ steps.params.outputs.include_debug == 'true' && ':app:phone:assembleDebug :app:tv:assembleDebug' || '' }}
-          :app:phone:assembleRelease :app:tv:assembleRelease
-          --stacktrace --build-cache
-        env:
-          CI_KEYSTORE_PATH: ${{ steps.ci_keystore.outputs.filePath }}
-          CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
-          CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
-          CI_KEY_PASSWORD: ${{ secrets.CI_KEY_PASSWORD }}
-          GIT_REVISION: ${{ steps.git_revision.outputs.value }}
-
-      - name: Verify embedded git revision
-        # Confirms GIT_REVISION actually made it into the built artifact instead of silently
-        # falling back to "unknown" - the same check `just build --release` runs locally.
-        run: |
-          revision="${{ steps.git_revision.outputs.value }}"
-          for apk in \
-            app/phone/build/outputs/apk/libre/release/phone-libre-arm64-v8a-release.apk \
-            app/tv/build/outputs/apk/libre/release/tv-libre-arm64-v8a-release.apk \
-          ; do
-            if ! unzip -p "$apk" 'classes*.dex' | strings | grep -Fx "$revision" >/dev/null; then
-              echo "::error::$apk does not contain expected revision: $revision" >&2
-              exit 1
-            fi
-          done
-
-      - name: Collect and rename APKs
-        id: apks
-        run: |
-          label="jollyfin-${{ steps.params.outputs.tag_name }}"
-          dir="/tmp/$label"
-          mkdir -p "$dir"
-
-          apks=(
-            app/phone/build/outputs/apk/libre/release/phone-libre-arm64-v8a-release.apk
-            app/phone/build/outputs/apk/libre/release/phone-libre-armeabi-v7a-release.apk
-            app/phone/build/outputs/apk/libre/release/phone-libre-x86_64-release.apk
-            app/phone/build/outputs/apk/libre/release/phone-libre-x86-release.apk
-            app/tv/build/outputs/apk/libre/release/tv-libre-arm64-v8a-release.apk
-            app/tv/build/outputs/apk/libre/release/tv-libre-armeabi-v7a-release.apk
-            app/tv/build/outputs/apk/libre/release/tv-libre-x86_64-release.apk
-            app/tv/build/outputs/apk/libre/release/tv-libre-x86-release.apk
-          )
-          if [ "${{ steps.params.outputs.include_debug }}" = "true" ]; then
-            apks+=(
-              app/phone/build/outputs/apk/libre/debug/phone-libre-arm64-v8a-debug.apk
-              app/phone/build/outputs/apk/libre/debug/phone-libre-armeabi-v7a-debug.apk
-              app/phone/build/outputs/apk/libre/debug/phone-libre-x86_64-debug.apk
-              app/phone/build/outputs/apk/libre/debug/phone-libre-x86-debug.apk
-              app/tv/build/outputs/apk/libre/debug/tv-libre-arm64-v8a-debug.apk
-              app/tv/build/outputs/apk/libre/debug/tv-libre-armeabi-v7a-debug.apk
-              app/tv/build/outputs/apk/libre/debug/tv-libre-x86_64-debug.apk
-              app/tv/build/outputs/apk/libre/debug/tv-libre-x86-debug.apk
-            )
-          fi
-
-          for apk in "${apks[@]}"; do
-            name="$label-$(basename "$apk" | sed -E 's/^(phone|tv)-libre-/\1-/')"
-            cp "$apk" "$dir/$name"
-          done
-          echo "dir=$dir" >> "$GITHUB_OUTPUT"
-
-      - name: Generate checksums
-        # Lets anyone who downloads a release asset verify it wasn't corrupted/tampered with in
-        # transit, and gives a third party rebuilding from source (see REPRODUCIBLE_BUILDS.md) a
-        # fixed value to diff their own output against.
-        working-directory: ${{ steps.apks.outputs.dir }}
-        run: sha256sum -- *.apk > SHA256SUMS
-
-      - name: Attest build provenance
-        # Signed SLSA build provenance for every APK, keyed off the checksums file just generated
-        # rather than re-hashing each APK separately - one attestation covering every subject.
-        # Runs for both the rolling "latest" prerelease and real tags: provenance is worth having
-        # for whatever gets published, not only tagged releases. Verify with:
-        #   gh attestation verify <apk> --repo pschmitt/jollyfin
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-checksums: ${{ steps.apks.outputs.dir }}/SHA256SUMS
-
-      - name: Move tag
-        if: steps.params.outputs.move_tag == 'true'
-        run: |
-          git tag -f ${{ steps.params.outputs.tag_name }}
-          git push origin ${{ steps.params.outputs.tag_name }} --force
-
-      - name: Record build time
-        if: steps.params.outputs.tag_name == 'latest'
-        id: date
-        run: echo "date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
-
-      # Two conditional steps rather than one templated body - a bash-composed body would need a
-      # heredoc terminator at column 0, which can't be indented to live inside this YAML block
-      # scalar alongside everything else, and templating it any other way is worse than just
-      # writing the two bodies out in plain YAML.
-      - name: Publish release (latest)
-        if: steps.params.outputs.tag_name == 'latest'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: latest
-          name: "Latest build"
-          body: |
-            Automated build of the latest main (${{ github.sha }}), built ${{ steps.date.outputs.date }}. Not a stable release.
-
-            Two variants are provided, both signed with the same CI key so upgrades between them work:
-            - `*-debug.apk` — debuggable, uses the `dev.pschmitt.jollyfin.debug` applicationId so it installs side by side with a release install for testing.
-            - `*-release.apk` — minified/optimized like a real release build, uses the same `dev.pschmitt.jollyfin` applicationId as every tagged release, so it upgrades cleanly over (or is upgraded by) any of them.
-
-            `SHA256SUMS` covers every APK above. Each APK also embeds this exact commit
-            (`${{ github.sha }}`) as `BuildConfig.GIT_REVISION`, checkable via `About` in the app
-            or by grepping the APK's dex - see [REPRODUCIBLE_BUILDS.md](https://github.com/pschmitt/jollyfin/blob/main/REPRODUCIBLE_BUILDS.md)
-            for how to rebuild and verify this release yourself.
-          files: ${{ steps.apks.outputs.dir }}/*
-          prerelease: true
-          make_latest: false
-
-      - name: Publish release (tag)
-        if: steps.params.outputs.tag_name != 'latest'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.params.outputs.tag_name }}
-          name: ${{ steps.params.outputs.release_name }}
-          body: |
-            Signed with the same CI key as every other build here - upgrades cleanly over an
-            existing `dev.pschmitt.jollyfin` install (the `latest` prerelease, an older tagged
-            release, or this one reinstalled).
-
-            `SHA256SUMS` covers every APK above. Each APK also embeds this exact commit
-            (`${{ github.sha }}`) as `BuildConfig.GIT_REVISION`, checkable via `About` in the app
-            or by grepping the APK's dex - see [REPRODUCIBLE_BUILDS.md](https://github.com/pschmitt/jollyfin/blob/main/REPRODUCIBLE_BUILDS.md)
-            for how to rebuild and verify this release yourself.
-          files: ${{ steps.apks.outputs.dir }}/*
-          prerelease: false
-          make_latest: true
-
-      - name: Trigger screenshot capture
-        # A real tagged release is the natural cue to refresh Play Store screenshots - the rolling
-        # "latest" prerelease republishes on every main push, far too often for a ~90min x3-device
-        # emulator job, so this only fires for a real vX.Y.Z tag. workflow_dispatch is one of the
-        # two events (alongside repository_dispatch) explicitly exempted from "GITHUB_TOKEN-caused
-        # events don't trigger new workflow runs", so the default token works here - it just needs
-        # the `actions: write` permission declared above. open_pr=true so the refreshed screenshots
-        # land as a reviewable PR (see screenshots.yaml) instead of only a build artifact.
-        if: steps.params.outputs.tag_name != 'latest'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run screenshots.yaml --repo "$GITHUB_REPOSITORY" --ref main -f open_pr=true
-
-      - name: Vacuum stale release assets
-        # action-gh-release above overwrites assets whose filenames match what we just uploaded,
-        # but never removes ones left over from a previous run under a different name (e.g. after
-        # an ABI/flavor list change). Only meaningful for the rolling "latest" tag - a real version
-        # tag's asset list never changes between runs.
-        if: steps.params.outputs.vacuum_stale_assets == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mapfile -t expected < <(basename -a "${{ steps.apks.outputs.dir }}"/*)
-          gh release view ${{ steps.params.outputs.tag_name }} --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
-            while IFS= read -r name; do
-              keep=0
-              for f in "${expected[@]}"; do
-                [ "$name" = "$f" ] && keep=1 && break
-              done
-              if [ "$keep" -eq 0 ]; then
-                echo "Deleting stale asset: $name"
-                gh release delete-asset ${{ steps.params.outputs.tag_name }} "$name" --repo "$GITHUB_REPOSITORY" -y
-              fi
-            done
+    uses: pschmitt/android-app-ci/.github/workflows/release.yaml@main
+    with:
+      app-display-name: JollyFin
+      application-id: dev.pschmitt.jollyfin
+      artifact-label: jollyfin
+      gradle-debug-task: ':app:phone:assembleDebug :app:tv:assembleDebug'
+      gradle-release-task: ':app:phone:assembleRelease :app:tv:assembleRelease'
+      # Collapse the "-libre-" module marker back out of the release-asset filename, e.g.
+      # phone-libre-arm64-v8a-release.apk -> phone-arm64-v8a-release.apk.
+      apk-rename-sed: 's/^(phone|tv)-libre-/\1-/'
+      release-apk-paths: |
+        app/phone/build/outputs/apk/libre/release/phone-libre-arm64-v8a-release.apk
+        app/phone/build/outputs/apk/libre/release/phone-libre-armeabi-v7a-release.apk
+        app/phone/build/outputs/apk/libre/release/phone-libre-x86_64-release.apk
+        app/phone/build/outputs/apk/libre/release/phone-libre-x86-release.apk
+        app/tv/build/outputs/apk/libre/release/tv-libre-arm64-v8a-release.apk
+        app/tv/build/outputs/apk/libre/release/tv-libre-armeabi-v7a-release.apk
+        app/tv/build/outputs/apk/libre/release/tv-libre-x86_64-release.apk
+        app/tv/build/outputs/apk/libre/release/tv-libre-x86-release.apk
+      debug-apk-paths: |
+        app/phone/build/outputs/apk/libre/debug/phone-libre-arm64-v8a-debug.apk
+        app/phone/build/outputs/apk/libre/debug/phone-libre-armeabi-v7a-debug.apk
+        app/phone/build/outputs/apk/libre/debug/phone-libre-x86_64-debug.apk
+        app/phone/build/outputs/apk/libre/debug/phone-libre-x86-debug.apk
+        app/tv/build/outputs/apk/libre/debug/tv-libre-arm64-v8a-debug.apk
+        app/tv/build/outputs/apk/libre/debug/tv-libre-armeabi-v7a-debug.apk
+        app/tv/build/outputs/apk/libre/debug/tv-libre-x86_64-debug.apk
+        app/tv/build/outputs/apk/libre/debug/tv-libre-x86-debug.apk
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: write
+      id-token: write
+      attestations: write
