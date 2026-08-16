@@ -33,9 +33,9 @@ default:
     @just --list
 
 # Recipes shared across the app fleet (format, nix-fmt, nix-lint, screenshots-upload) - see
-# pschmitt/android-app-ci's just/common.just for the source of truth. Vendored (not a submodule -
-# see that repo's README) as .just/common.just; `just update-common` (defined at the bottom of
-# this file) refreshes it.
+# pschmitt/android-app-ci's just/common.just for the source of truth. Vendored via vendir (not a
+# git submodule - see that repo's README and this repo's vendir.yml) as .just/common.just; `just
+# update-common` (defined at the bottom of this file) refreshes it.
 import '.just/common.just'
 
 # --- Remote build (rofl-13 / rofl-14) -------------------------------------
@@ -291,6 +291,9 @@ play-feature-graphic-upload:
 # --- Shared recipes (pschmitt/android-app-ci) -------------------------------
 
 # Refresh the vendored copy of pschmitt/android-app-ci's shared recipes (format, nix-fmt,
-# nix-lint, screenshots-upload - see the `import` near the top of this file).
+# nix-lint, screenshots-upload - see the `import` near the top of this file, and vendir.yml for
+# what's vendored from where). Re-resolves `ref: main` to whatever's current and updates
+# vendir.lock.yml's pinned commit accordingly - review the diff like any other dependency bump
+# before committing it.
 update-common:
-    curl -fsSL https://raw.githubusercontent.com/pschmitt/android-app-ci/main/just/common.just -o .just/common.just
+    vendir sync
