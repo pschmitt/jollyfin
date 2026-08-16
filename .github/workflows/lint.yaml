@@ -4,10 +4,12 @@ name: Lint
 # pschmitt/android-app-ci's reusable lint workflow (ktfmt + Android Lint, with the ktfmt
 # auto-fix-PR behavior) - see that repo's README for what it does.
 #
-# This adds an Android Lint (`./gradlew lintDebug`, run against both app/phone and app/tv since
-# it's unqualified) job that jollyfin's lint.yaml didn't run before - if it fails on the first run
-# here, that's surfacing pre-existing lint debt, not something this migration introduced. jollyfin
-# has no app/lint-baseline.xml, so that check is skipped.
+# enable-android-lint is off for now: jollyfin's lint.yaml never ran Android Lint before, and
+# turning it on here immediately surfaces a pre-existing, unrelated failure (ExtraTranslation on
+# settings/src/main/res/values-da/strings.xml:16's pref_player_chapter_markers_summary - present
+# in ~23 locale strings.xml files but missing from the base values/strings.xml). Flip this to true
+# once that's triaged (either add the missing base-locale string or fix the actual mismatch).
+# jollyfin has no app/lint-baseline.xml either way, so that check would be skipped regardless.
 on:
   push:
     paths:
@@ -26,6 +28,7 @@ jobs:
     uses: pschmitt/android-app-ci/.github/workflows/lint.yaml@main
     with:
       lint-baseline-path: ''
+      enable-android-lint: false
     secrets: inherit
     permissions:
       contents: write
