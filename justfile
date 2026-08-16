@@ -33,10 +33,13 @@ default:
     @just --list
 
 # Recipes shared across the app fleet (format, nix-fmt, nix-lint, screenshots-upload) - see
-# pschmitt/android-app-ci's just/common.just for the source of truth. Vendored via vendir (not a
-# git submodule - see that repo's README and this repo's vendir.yml) as .just/common.just; `just
-# update-common` (defined at the bottom of this file) refreshes it.
-import '.just/common.just'
+# pschmitt/android-app-ci's just/common.just for the source of truth. Pulled in via a git
+# submodule at .just/android-app-ci (tracking that repo's main branch, though jollyfin only
+# imports common.just from it - single-module.just needs a module axis this repo's multi-module
+# build doesn't have). `just update-common` (defined at the bottom of this file) refreshes it. The
+# devShell's shellHook auto-runs `git submodule update --init` on every `nix develop` entry, so a
+# fresh git worktree never needs a manual `--init` step.
+import '.just/android-app-ci/just/common.just'
 
 # --- Remote build (rofl-13 / rofl-14) -------------------------------------
 
@@ -290,10 +293,8 @@ play-feature-graphic-upload:
 
 # --- Shared recipes (pschmitt/android-app-ci) -------------------------------
 
-# Refresh the vendored copy of pschmitt/android-app-ci's shared recipes (format, nix-fmt,
-# nix-lint, screenshots-upload - see the `import` near the top of this file, and vendir.yml for
-# what's vendored from where). Re-resolves `ref: main` to whatever's current and updates
-# vendir.lock.yml's pinned commit accordingly - review the diff like any other dependency bump
-# before committing it.
+# Advance the .just/android-app-ci submodule to the tip of its tracked branch (main) and stage the
+# result - review the diff like any other dependency bump before committing it.
 update-common:
-    vendir sync
+    git submodule update --remote .just/android-app-ci
+    git add .just/android-app-ci
