@@ -2,23 +2,16 @@
 
 Repository instructions for AI coding agents working on JollyFin.
 
+See `.just/android-app-ci/AGENTS-shared.md` for the fleet-wide task-tracking convention, dev
+environment (`nix develop`/`git-hooks.nix`), CI-is-the-sole-lint-authority rule, and physical test
+device docs (this app only has Mi Pad 4, not the other two fleet devices) - read it alongside this
+file, not instead of it.
+
 ## Task tracking
 
-- `TODO.md` is the running backlog/changelog for this fork, one `## JF-N:` entry
-  per feature or fix, numbered sequentially (never reuse or renumber an id).
-  Each entry has a checklist of sub-items (`- [ ]`/`- [x]`) and ends with a
-  `Status:` line (`not started` / `in progress` / `mostly done` / `**done**`,
-  plus a date and how it was verified).
-  - Entries through `FINDROID-81` predate the `dev.pschmitt.jellyfin`/Jollyfin rename
-    (see `FINDROID-72`) and keep their original prefix as a historical record - don't
-    renumber them. `JF-N` starts fresh at `82` for everything after.
-- Before starting any non-trivial new feature or fix, add (or update) a `JF-N`
-  entry describing it — even if the same conversation immediately goes on to
-  implement it. Update the checklist/status as work actually lands, rather than
-  writing the whole entry retroactively once everything's finished. This keeps
-  `TODO.md` an accurate record of what's done vs. still open, not just a summary
-  written after the fact.
-- Trivial one-off asks (a typo, a single-line tweak) don't need their own entry.
+- This project's `TODO.md` prefix is `JF-N`. Entries through `FINDROID-81` predate the
+  `dev.pschmitt.jellyfin`/Jollyfin rename (see `FINDROID-72`) and keep their original prefix as a
+  historical record - don't renumber them. `JF-N` starts fresh at `82` for everything after.
 
 ## CLI parity
 
@@ -37,26 +30,11 @@ Repository instructions for AI coding agents working on JollyFin.
 
 ## Dev environment
 
-- `nix develop` provides the full toolchain (JDK 21, Android SDK, `just`, `ktfmt`) and
-  installs the repo's pre-commit hooks (see `flake.nix`'s `git-hooks.nix` integration —
-  trailing whitespace, EOF fixer, merge-conflict/large-file checks, `nixfmt`, `statix`).
-  The generated `.pre-commit-config.yaml` is gitignored — it's regenerated from
-  `flake.nix` on every shell entry, don't hand-edit it.
-  - Deliberately **no** `ktfmt` pre-commit hook: nixpkgs only ships a recent standalone
-    `ktfmt` (0.63+), but the project's Gradle plugin pins `ktfmt` 0.26.0 (see
-    `gradle/libs.versions.toml`), and the two format some constructs differently — a
-    hook running the wrong version could "fix" a file into a state that then fails
-    CI's real `ktfmtCheck`. This actually happened once: it inserted spurious blank
-    lines between every `include()` in `settings.gradle.kts`. Use `just lint` (runs
-    the pinned Gradle plugin remotely) as the authoritative formatting check. If `just lint`
-    and CI's `Lint` workflow ever disagree, trust CI: `.github/workflows/lint.yaml`'s ktfmt job
-    auto-uploads a `ktfmt-diff-patch` artifact whenever `ktfmtCheck` fails (also dispatchable on
-    demand via `gh workflow run lint.yaml`), containing exactly what `./gradlew ktfmtFormat`
-    would change in CI's own environment. Download it
-    (`gh run download <run-id> -n ktfmt-diff-patch`) and `git apply` it rather than guessing.
-- Prefer the `justfile` recipes over raw `./gradlew`/`ssh`/`adb` invocations — run
-  `just --list` for the full set. It wraps everything below (remote builds, fetching
-  APKs, and Mi Pad 4 install/logcat/adb-enable) in composable recipes.
+See the shared doc for the `nix develop`/`git-hooks.nix` basics and the no-ktfmt-pre-commit-hook
+rationale (the `settings.gradle.kts` `include()` blank-line incident it references happened here).
+Prefer the `justfile` recipes over raw `./gradlew`/`ssh`/`adb` invocations — run `just --list` for
+the full set. It wraps everything below (remote builds, fetching APKs, and Mi Pad 4
+install/logcat/adb-enable) in composable recipes.
 
 ## Builds
 
@@ -118,30 +96,7 @@ Repository instructions for AI coding agents working on JollyFin.
 
 ## Physical test device
 
-- A **Mi Pad 4** (`arm64-v8a`) is available for installing and checking debug builds.
-  Reachable via SSH at `mi-pad-4.lan`, port `8022` (Termux, rooted). The `justfile` wraps
-  the common operations, all built on real `adb` (not `scp`/`pm install`):
-  - `just mipad-connect` — the core primitive. Finds the port `adbd` is actually
-    listening on via `su -c 'ss -ltnp'` over SSH (adbd is usually already running — the
-    device doesn't rely on a fixed port), `adb connect`s to it, and prints the resulting
-    `host:port` on stdout (status goes to stderr) so other recipes can capture it with
-    `target=$(just mipad-connect)`. Only if nothing is listening does it fall back to
-    forcing `adbd` on via root (`setprop service.adb.tcp.port` + restart).
-  - `just mipad-install <apk>` — connects, then `adb install -r`. Deliberately avoids
-    `scp` into `/sdcard` + `pm install`: `system_server` can't read the FUSE-backed
-    `/sdcard` back (SELinux denies it — `avc: denied { read } ... tcontext=u:object_r:fuse:s0`),
-    and Termux's `sshd` has no `sftp-server` subsystem configured anyway (plain `scp`
-    fails with "Connection closed" unless you pass `-O` for the legacy protocol). `adb
-    install` sidesteps all of that.
-  - `just deploy [flags]` — build the APK remotely, fetch it, and install it on the
-    Mi Pad 4 in one step. Same flags as `just build`, e.g. `just deploy --debug`.
-  - `just mipad-logcat [filter]` — tail `logcat` from the device, optionally grepped.
-  - `just mipad-uninstall <pkg>` — `adb uninstall` a package (see the signature-mismatch
-    gotcha below).
-  - `just mipad-shell` — interactive SSH shell on the device.
-  - Signature mismatch gotcha: if the device already has a build signed with a different
-    key than the one you're installing, install fails with
-    `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. Fix is `just mipad-uninstall <applicationId>`
-    then install fresh — this wipes local app data (Room DB, playback positions,
-    download records). Confirm with the user before doing this if it's not their own
-    throwaway data.
+See the shared doc's Mi Pad 4 section (`just mipad-connect`/`mipad-install`/`mipad-uninstall`/
+`mipad-logcat`/`mipad-shell`, the signature-mismatch gotcha) - jollyfin is the one app in the
+fleet that doesn't also have Zenfone/Pixel 5 recipes. `just deploy [flags]` is this repo's own
+build+fetch+install-on-MiPad recipe, same flags as `just build` (e.g. `just deploy --debug`).
