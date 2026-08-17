@@ -2,12 +2,17 @@ name: Play Store Release
 
 # Runs on the same "vX.Y.Z" tags release.yaml publishes GitHub releases from, always building a
 # signed AAB for :app:phone - TV isn't covered by Play Store publishing here, matching
-# screenshots.yaml's own existing scope. Publishing to the internal track additionally requires
-# the repository variable PLAY_PUBLISH_ENABLED=true and a PLAY_SERVICE_ACCOUNT_JSON secret -
-# neither exists until those are deliberately set up in Settings > Secrets and variables, so a tag
-# push safely fails loudly (see publish-gate) rather than silently publishing on a fresh checkout.
+# screenshots.yaml's own existing scope. Delegates the actual build/publish to
+# pschmitt/android-app-ci's reusable play-store.yaml, which additionally requires the repository
+# variable PLAY_PUBLISH_ENABLED=true and a PLAY_SERVICE_ACCOUNT_JSON secret - neither exists until
+# those are deliberately set up in Settings > Secrets and variables, so a tag push safely fails
+# loudly (see that workflow's publish-gate job) rather than silently publishing on a fresh
+# checkout.
+#
 # versionCode/versionName come from buildSrc/src/main/kotlin/Versions.kt, the same source
-# release.yaml's own build already relies on - bump that before tagging, same as any other release.
+# release.yaml's own build already relies on - bump that before tagging, same as any other
+# release. No override input here (unlike nyetbox/augh/syncwich) since jollyfin never had one.
+
 on:
   push:
     tags:
@@ -20,126 +25,16 @@ on:
         default: false
         type: boolean
 
-concurrency:
-  group: play-store-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
 jobs:
-  bundle:
-    name: Build signed AAB
-    runs-on: ubuntu-24.04
-    outputs:
-      publish: ${{ steps.publish.outputs.value }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Determine whether to publish
-        id: publish
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "value=${{ inputs.publish }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21.0.11'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      - name: Decode CI signing keystore
-        id: ci_keystore
-        uses: timheuer/base64-to-file@v2
-        with:
-          fileName: 'jollyfin-ci.jks'
-          encodedString: ${{ secrets.CI_KEYSTORE_BASE64 }}
-
-      - name: Build signed Android App Bundle
-        run: ./gradlew :app:phone:bundleRelease --stacktrace --build-cache
-        env:
-          CI_KEYSTORE_PATH: ${{ steps.ci_keystore.outputs.filePath }}
-          CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
-          CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
-          CI_KEY_PASSWORD: ${{ secrets.CI_KEY_PASSWORD }}
-
-      - name: Locate and verify bundle output
-        # Globs rather than hardcoding the exact path: the sole "libre" product flavor means AGP
-        # names the output directory/file after it (e.g. outputs/bundle/libreRelease/phone-libre-
-        # release.aab), and that naming shouldn't need updating here if the flavor ever changes.
-        id: bundle
-        run: |
-          bundle="$(find app/phone/build/outputs/bundle -iname '*.aab' | head -n1)"
-          test -n "$bundle" -a -s "$bundle" || {
-            echo "No signed bundle found under app/phone/build/outputs/bundle" >&2
-            exit 1
-          }
-          echo "path=$bundle" >> "$GITHUB_OUTPUT"
-
-      - name: Upload Play artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: jollyfin-${{ github.ref_name }}-aab
-          path: ${{ steps.bundle.outputs.path }}
-          if-no-files-found: error
-
-  publish-gate:
-    name: Reject accidental publishing
-    needs: bundle
-    if: ${{ needs.bundle.outputs.publish == 'true' && vars.PLAY_PUBLISH_ENABLED != 'true' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Require the repository-level publication gate
-        run: |
-          echo "Publishing was requested, but PLAY_PUBLISH_ENABLED is not true." >&2
-          echo "Set that repository variable only after Play Console and service-account setup." >&2
-          exit 1
-
-  publish:
-    name: Upload to Play internal testing
-    needs: bundle
-    if: ${{ needs.bundle.outputs.publish == 'true' && vars.PLAY_PUBLISH_ENABLED == 'true' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download Play artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: jollyfin-${{ github.ref_name }}-aab
-          path: play-artifact
-
-      - name: Check publication credentials
-        env:
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          test -n "$PLAY_SERVICE_ACCOUNT_JSON" || {
-            echo "PLAY_SERVICE_ACCOUNT_JSON is required when publishing is enabled." >&2
-            exit 1
-          }
-
-      - name: Locate downloaded bundle
-        id: bundle
-        run: |
-          bundle="$(find play-artifact -iname '*.aab' | head -n1)"
-          test -n "$bundle" || {
-            echo "No .aab found in the downloaded artifact" >&2
-            exit 1
-          }
-          echo "path=$bundle" >> "$GITHUB_OUTPUT"
-
-      - name: Upload bundle
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: dev.pschmitt.jollyfin
-          releaseFiles: ${{ steps.bundle.outputs.path }}
-          tracks: internal
-          status: completed
+  play-store:
+    uses: pschmitt/android-app-ci/.github/workflows/play-store.yaml@main
+    with:
+      application-id: dev.pschmitt.jollyfin
+      artifact-label: jollyfin
+      gradle-bundle-task: ':app:phone:bundleRelease'
+      # AGP names the output directory after the "libre" flavor (e.g.
+      # app/phone/build/outputs/bundle/libreRelease/phone-libre-release.aab) - glob instead of a
+      # literal path, same as the original hand-rolled `find ... -iname '*.aab'` step did.
+      aab-path: 'app/phone/build/outputs/bundle/**/*.aab'
+      publish: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+    secrets: inherit
