@@ -1,0 +1,2 @@
+Fixed:
+- Pending Sonarr/Radarr downloads now appear immediately after pulling to refresh Home or Downloads.

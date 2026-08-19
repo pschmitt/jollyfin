@@ -2115,3 +2115,14 @@ Entries above use the FINDROID-N prefix from before the Jollyfin rename (see FIN
 keep it as a historical record - they are not renumbered. Entries below use JF-N, starting at 82.
 See AGENTS.md's "Task tracking" section.
 -->
+
+## JF-82: Refresh pending PVR downloads immediately
+
+- [x] Make Home pull-to-refresh fetch the current Sonarr/Radarr queue instead of waiting for the
+      background poll.
+- [x] Keep queued and importing PVR entries visible in Home's "Pending downloads" row, not just
+      entries currently transferring.
+- [x] Verify formatting, compilation, and relevant tests remotely.
+
+Status: **done** (2026-08-19) - remote `ktfmtCheck`, `data`/`core` unit tests, and
+`:app:phone:compileLibreDebugKotlin` all passed on rofl-13.

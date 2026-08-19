@@ -13,6 +13,7 @@ import dev.pschmitt.jellyfin.models.CollectionType
 import dev.pschmitt.jellyfin.models.HomeItem
 import dev.pschmitt.jellyfin.models.HomeSection
 import dev.pschmitt.jellyfin.models.JollyfinItem
+import dev.pschmitt.jellyfin.models.QueueItemStatus
 import dev.pschmitt.jellyfin.models.UiText
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
@@ -74,10 +75,7 @@ constructor(
                 _state.value =
                     _state.value.copy(
                         activeDownloads =
-                            snapshot.entries.filter {
-                                it.status.status ==
-                                    dev.pschmitt.jellyfin.models.QueueItemStatus.DOWNLOADING
-                            }
+                            snapshot.entries.filter { it.status.status in ACTIVE_QUEUE_STATUSES }
                     )
             }
         }
@@ -102,6 +100,16 @@ constructor(
         viewModelScope.launch(Dispatchers.Default) {
             _state.emit(_state.value.copy(isLoading = true, error = null))
             try {
+                // Home's pull-to-refresh must refresh the PVR queue as well as Jellyfin content;
+                // otherwise a newly grabbed Radarr/Sonarr item remains invisible until the
+                // singleton repository's next background poll.
+                try {
+                    queueStatusRepository.refreshNow()
+                } catch (e: Exception) {
+                    // Queue failures are already represented by the queue snapshot's service
+                    // errors where possible. They must not prevent the rest of Home from loading.
+                    Timber.w(e, "Failed to refresh PVR queue from Home")
+                }
                 appPreferences.getValue(appPreferences.currentServer)?.let { serverId ->
                     loadServerName(serverId)
                     processPendingRestoreDownloads(serverId)
@@ -401,6 +409,15 @@ constructor(
             }
             else -> Unit
         }
+    }
+
+    private companion object {
+        val ACTIVE_QUEUE_STATUSES =
+            setOf(
+                QueueItemStatus.QUEUED,
+                QueueItemStatus.DOWNLOADING,
+                QueueItemStatus.IMPORTING,
+            )
     }
 
     /**
