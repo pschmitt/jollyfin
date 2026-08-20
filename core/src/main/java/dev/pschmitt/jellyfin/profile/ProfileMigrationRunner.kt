@@ -194,10 +194,32 @@ constructor(
 
         for (config in pvrConfigs) copyLegacySecrets(config.service, config.id)
 
-        if (appPreferences.getValue(appPreferences.currentProfileId) == null) {
-            appPreferences.setValue(appPreferences.currentProfileId, main.id.toString())
+        // Not just "if null": a backup/QR envelope restores this raw UUID string verbatim (it's an
+        // ordinary AppPreferences key, not excluded like thisDeviceId), but Profile rows themselves
+        // are never part of the envelope - they're recreated above with brand-new random UUIDs. A
+        // restore onto a device that already had a profile (or a fresh install with no prior value)
+        // would otherwise leave this pointing at a profile id from the SOURCE device that doesn't
+        // exist locally, so every PvrConfigResolver.currentProfile() lookup silently returns null.
+        val storedProfileId = appPreferences.getValue(appPreferences.currentProfileId)
+        val storedProfileExists =
+            storedProfileId
+                ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+                ?.let { dao.getProfile(it) } != null
+        // commit(), not the setValue()/apply() default: BackupManager.restore() and
+        // QrConfigManager.applyEnvelope() both call this method immediately before force-restarting
+        // the process (see RestoreBackupScreen's restartProcess(), which calls
+        // Runtime.getRuntime().exit(0) right after startActivity() - not a graceful Activity finish
+        // that would let QueuedWork drain pending apply() writes first). An async write here races
+        // that exit and can be silently dropped, which is exactly how this bug was first found: the
+        // profile got recreated with a new id and the PvrServiceConfig/secrets were restored
+        // correctly, but the dropped apply() left currentProfileId pointing at the stale id from
+        // the backup's source device on the very next cold start, right back to square one.
+        val editor = appPreferences.sharedPreferences.edit()
+        if (!storedProfileExists) {
+            editor.putString(appPreferences.currentProfileId.backendName, main.id.toString())
         }
-        appPreferences.setValue(appPreferences.profilesMigrated, true)
+        editor.putBoolean(appPreferences.profilesMigrated.backendName, true)
+        editor.commit()
     }
 
     // Copies (never moves) the legacy flat keys - safe to re-run if a crash happens between this

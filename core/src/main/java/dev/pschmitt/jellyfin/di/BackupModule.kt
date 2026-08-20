@@ -5,7 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import dev.pschmitt.jellyfin.api.pvr.PvrClientConfig
+import dev.pschmitt.jellyfin.api.pvr.PvrClientConfigFull
 import dev.pschmitt.jellyfin.backup.BackupManager
 import dev.pschmitt.jellyfin.database.ServerDatabaseDao
 import dev.pschmitt.jellyfin.profile.ProfileMigrationRunner
@@ -33,7 +33,14 @@ object BackupModule {
             appPreferences = appPreferences,
             resolvePvrConfig = { service ->
                 pvrConfigResolver.resolveConfig(service)?.let {
-                    PvrClientConfig(enabled = it.enabled, baseUrl = it.baseUrl, apiKey = it.apiKey)
+                    PvrClientConfigFull(
+                        enabled = it.enabled,
+                        baseUrl = it.baseUrl,
+                        apiKey = it.apiKey,
+                        httpHeaders = it.httpHeaders,
+                        basicAuthUsername = it.basicAuthUsername,
+                        basicAuthPassword = it.basicAuthPassword,
+                    )
                 }
             },
             // Blocking, not the fire-and-forget default - see

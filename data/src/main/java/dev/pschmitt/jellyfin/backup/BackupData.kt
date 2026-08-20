@@ -23,12 +23,13 @@ data class BackupEnvelope(
     val preferences: Map<String, PrefValue>,
     val downloadedItems: List<BackupDownloadedItem>,
     // dev.pschmitt.jellyfin.security.SecureCredentialStore entries, keyed by its own key names
-    // (currently just PvrCredentialKeys.SONARR_API_KEY/RADARR_API_KEY) - see
-    // BackupManager.buildBackup()/restore(). Plain preferences (the Sonarr/Radarr enabled toggle,
-    // base URL) already round-trip via [preferences] above; without this, a restored backup would
-    // look "configured" but silently fail to fetch anything, since the API key itself lives in a
-    // separate encrypted store dumpPreferences() never touches. Defaults to empty so backups
-    // written before this field existed still decode.
+    // (PvrCredentialKeys.SONARR_API_KEY/RADARR_API_KEY/SEERR_API_KEY plus each service's HTTP
+    // headers/basic-auth) - see BackupManager.buildBackup()/restore(). The enabled toggle and base
+    // URL round-trip via [preferences] above (dumpPreferences() resolves them from the active
+    // profile's live PvrServiceConfig, not the dead legacy AppPreferences fields); without this
+    // field, a restored backup would look "configured" but silently fail to fetch anything, since
+    // the API key itself lives in a separate encrypted store dumpPreferences() never touches.
+    // Defaults to empty so backups written before this field existed still decode.
     val secrets: Map<String, String> = emptyMap(),
     // Which app build wrote this file - not read by restore() today, but lets a future format
     // change (bumping [version]) tell an old backup apart from a merely-old app instead of

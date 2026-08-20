@@ -1,0 +1,2 @@
+Fixed:
+- Restoring a backup no longer drops the "Pending downloads" section or the Calendar tab when Sonarr/Radarr/Seerr were configured.

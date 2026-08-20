@@ -2126,3 +2126,31 @@ See AGENTS.md's "Task tracking" section.
 
 Status: **done** (2026-08-19) - remote `ktfmtCheck`, `data`/`core` unit tests, and
 `:app:phone:compileLibreDebugKotlin` all passed on rofl-13.
+
+## JF-83: Fix "Pending downloads" and Calendar tab vanishing after backup restore
+
+- [x] `BackupManager.dumpPreferences()`/`dumpSecrets()` only exported the resolved API key per PVR
+      service - `enabled`/`baseUrl`/HTTP headers/basic-auth still came from the dead legacy
+      `AppPreferences` fields nothing writes to post-Profiles, so a restore always looked
+      "configured" with a working key but `enabled=false`/`baseUrl=null`, silently dropping
+      "Pending downloads" and PVR polling/calendar. Now resolves the live `PvrClientConfigFull` per
+      service (mirroring `QrConfigManager.putPvrFields()`) instead.
+- [x] `ProfileMigrationRunner.reconcileAfterExternalRestore()` correctly detected a dangling
+      `currentProfileId` pointing at the source device's stale profile id, but persisted the fix via
+      `AppPreferences.setValue()`'s async `apply()` - which races the immediate
+      `Runtime.getRuntime().exit(0)` process restart right after restore and can be silently
+      dropped, leaving `currentProfileId` stale again on the very next cold start. Switched that
+      write (and `profilesMigrated`) to a synchronous `commit()`, matching the pattern already used
+      elsewhere in this method for the same reason.
+- [x] Verified end-to-end on a real device (Zenfone 10, wired adb): configured Sonarr/Radarr/Seerr
+      and a custom navbar order against a disposable local Jellyfin fixture, backed up, wiped the
+      app (uninstall/reinstall) to simulate a fresh device, restored, and confirmed both "Pending
+      downloads" and the Calendar tab reappeared exactly as configured - inspected the on-device
+      SQLite DB and SharedPreferences directly to confirm `currentProfileId` now matches the
+      recreated main profile.
+- [x] Verify formatting, compilation, and relevant tests remotely.
+- [x] Bump the patch release from 2.14.7 (64) to 2.14.8 (65), including the English changelog.
+
+Status: **done** (2026-08-21) - remote `ktfmtCheck`, `data`/`core` unit tests, and
+`:app:phone:compileLibreDebugKotlin`/`:core:compileLibreDebugKotlin` all passed on rofl-13; verified
+live on a Zenfone 10 over wired adb.

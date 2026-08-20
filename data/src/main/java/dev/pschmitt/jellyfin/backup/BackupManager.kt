@@ -2,13 +2,14 @@ package dev.pschmitt.jellyfin.backup
 
 import android.content.Context
 import android.net.Uri
-import dev.pschmitt.jellyfin.api.pvr.PvrClientConfig
+import dev.pschmitt.jellyfin.api.pvr.PvrClientConfigFull
 import dev.pschmitt.jellyfin.api.pvr.PvrCredentialKeys
 import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.database.ServerDatabaseDao
 import dev.pschmitt.jellyfin.models.AutoDownloadRuleDto
 import dev.pschmitt.jellyfin.models.JollyfinSourceType
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
+import dev.pschmitt.jellyfin.settings.domain.models.Preference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -36,7 +37,7 @@ class BackupManager(
     private val context: Context,
     private val database: ServerDatabaseDao,
     private val appPreferences: AppPreferences,
-    private val resolvePvrConfig: (PvrService) -> PvrClientConfig? = { null },
+    private val resolvePvrConfig: (PvrService) -> PvrClientConfigFull? = { null },
     private val putSecret: (key: String, value: String) -> Unit = { _, _ -> },
     private val reconcileProfiles: () -> Unit = {},
 ) {
@@ -167,19 +168,26 @@ class BackupManager(
     }
 
     /**
-     * Reads the active profile's resolved API key per service - MUST go through [resolvePvrConfig]
+     * Reads the active profile's resolved secrets per service - MUST go through [resolvePvrConfig]
      * (the profile-aware [dev.pschmitt.jellyfin.pvr.PvrConfigResolver]), not a direct
      * `SecureCredentialStore` read keyed by [PvrCredentialKeys]'s legacy flat constants, since
      * those are stale/unused once a profile has its own namespaced override. Still labels each
-     * exported secret with its legacy flat key name (via [PvrCredentialKeys.legacyApiKey]) purely
-     * as the envelope's map key - [restore] writes it straight back with that same label, seeded
-     * from whichever profile was active at export time.
+     * exported secret with its legacy flat key name (via [PvrCredentialKeys.legacyApiKey] and
+     * friends) purely as the envelope's map key - [restore] writes it straight back with that same
+     * label, seeded from whichever profile was active at export time. Mirrors
+     * [dev.pschmitt.jellyfin.qrsetup.QrConfigManager.putPvrFields]'s secrets half.
      */
     private fun dumpSecrets(): Map<String, String> {
         val result = mutableMapOf<String, String>()
         for (service in PvrService.entries) {
-            resolvePvrConfig(service)?.apiKey?.let {
-                result[PvrCredentialKeys.legacyApiKey(service)] = it
+            val config = resolvePvrConfig(service) ?: continue
+            config.apiKey?.let { result[PvrCredentialKeys.legacyApiKey(service)] = it }
+            config.httpHeaders?.let { result[PvrCredentialKeys.legacyHttpHeaders(service)] = it }
+            config.basicAuthUsername?.let {
+                result[PvrCredentialKeys.legacyBasicAuthUsername(service)] = it
+            }
+            config.basicAuthPassword?.let {
+                result[PvrCredentialKeys.legacyBasicAuthPassword(service)] = it
             }
         }
         return result
@@ -212,8 +220,37 @@ class BackupManager(
                     else -> continue
                 }
         }
+        // Overrides whatever's in the raw SharedPreferences dump above: sonarrEnabled/sonarrBaseUrl
+        // (and the radarr/seerr equivalents) are dead legacy fields the modern per-profile Settings
+        // UI no longer writes, so they'd otherwise export as stale false/null even when the active
+        // profile has a working Sonarr/Radarr/Seerr config - which made "Pending downloads" (and
+        // queue polling/calendar) silently disappear after every restore, since only the API key
+        // secret (dumpSecrets() above) reflected the real config. Mirrors
+        // [dev.pschmitt.jellyfin.qrsetup.QrConfigManager.putPvrFields]'s plainPrefs half.
+        for (service in PvrService.entries) {
+            val config = resolvePvrConfig(service)
+            result[enabledPreference(service).backendName] =
+                PrefValue.BoolValue(config?.enabled == true)
+            config?.baseUrl?.let {
+                result[baseUrlPreference(service).backendName] = PrefValue.StringValue(it)
+            }
+        }
         return result
     }
+
+    private fun enabledPreference(service: PvrService): Preference<Boolean> =
+        when (service) {
+            PvrService.SONARR -> appPreferences.sonarrEnabled
+            PvrService.RADARR -> appPreferences.radarrEnabled
+            PvrService.SEERR -> appPreferences.seerrEnabled
+        }
+
+    private fun baseUrlPreference(service: PvrService): Preference<String?> =
+        when (service) {
+            PvrService.SONARR -> appPreferences.sonarrBaseUrl
+            PvrService.RADARR -> appPreferences.radarrBaseUrl
+            PvrService.SEERR -> appPreferences.seerrBaseUrl
+        }
 
     private fun restorePreferences(preferences: Map<String, PrefValue>) {
         val editor = appPreferences.sharedPreferences.edit()
