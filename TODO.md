@@ -2184,6 +2184,7 @@ Status: implementation complete; device verification pending (2026-08-22).
 
 - [x] Bump `Versions.kt` from 2.14.8 (65) to 2.14.9 (66).
 - [x] Add the English changelog for version code 66.
-- [ ] Run CI before tagging and push the `v2.14.9` tag.
+- [x] Run CI before tagging and push the `v2.14.9` tag.
 
-Status: waiting for CI before tagging (2026-08-22).
+Status: **done** (2026-08-22) - Build, Lint, and Release CI passed for `7a559f9e`; pushed tag
+`v2.14.9`.
