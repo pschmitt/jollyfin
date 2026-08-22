@@ -2179,3 +2179,11 @@ Status: implementation complete; device verification pending (2026-08-22).
 - [ ] Verify the ordering on a real device.
 
 Status: implementation complete; device verification pending (2026-08-22).
+
+## JF-87: Bump the patch release to 2.14.9
+
+- [x] Bump `Versions.kt` from 2.14.8 (65) to 2.14.9 (66).
+- [x] Add the English changelog for version code 66.
+- [ ] Run CI before tagging and push the `v2.14.9` tag.
+
+Status: waiting for CI before tagging (2026-08-22).

@@ -1,0 +1,3 @@
+Changed:
+- Season downloads can now be deleted from the overflow menu.
+- Shows now list the most recent seasons first.
