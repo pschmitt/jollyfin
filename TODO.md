@@ -2164,3 +2164,18 @@ live on a Zenfone 10 over wired adb.
 
 Status: **done** (2026-08-22) - remote player-module tests, repository `ktfmtCheck`,
 `data`/`core` unit tests, and `:app:phone:compileLibreDebugKotlin` all passed on rofl-13.
+
+## JF-85: Move Season delete-download action into the overflow menu
+
+- [ ] Remove the primary "Delete download" button from the Season view.
+- [ ] Add the same action to the Season view's overflow menu.
+- [ ] Verify the action and confirmation flow on a real device.
+
+Status: not started (2026-08-22).
+
+## JF-86: Show newest seasons first
+
+- [ ] Reverse the season ordering in the Show view so the most recent seasons appear first.
+- [ ] Verify the ordering on a real device.
+
+Status: not started (2026-08-22).
