@@ -59,7 +59,6 @@ import dev.pschmitt.jellyfin.presentation.film.components.AggregateInfoDialog
 import dev.pschmitt.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.pschmitt.jellyfin.presentation.film.components.Direction
 import dev.pschmitt.jellyfin.presentation.film.components.EpisodeCard
-import dev.pschmitt.jellyfin.presentation.film.components.ItemActionButton
 import dev.pschmitt.jellyfin.presentation.film.components.ItemButtonsBar
 import dev.pschmitt.jellyfin.presentation.film.components.ItemDetailScaffold
 import dev.pschmitt.jellyfin.presentation.film.components.ItemHeader
@@ -74,7 +73,6 @@ import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.displayNameWithContext
-import dev.pschmitt.jellyfin.utils.formatBinaryFileSize
 import java.util.UUID
 import org.jellyfin.sdk.model.api.BaseItemKind
 
@@ -338,26 +336,6 @@ private fun SeasonScreenLayout(
                                     )
                                     .show()
                             },
-                            // Same "size as the label" tile the single-episode Delete download tile
-                            // uses (see ItemButtonsBar) - one reusable shape for both scopes
-                            // instead
-                            // of a bespoke button + separate disk-usage caption.
-                            trailingContent = {
-                                if (state.hasDownloads || state.autoDownloadEnabled) {
-                                    ItemActionButton(
-                                        icon = painterResource(CoreR.drawable.ic_trash),
-                                        label =
-                                            state.downloadsSizeBytes
-                                                .takeIf { it > 0L }
-                                                ?.let { formatBinaryFileSize(it) }
-                                                ?: stringResource(
-                                                    CoreR.string.clear_season_downloads
-                                                ),
-                                        onClick = { clearSeasonDownloadsDialogOpen = true },
-                                        contentColor = MaterialTheme.colorScheme.error,
-                                    )
-                                }
-                            },
                             overflowContent = {
                                 ItemOverflowMenu { closeMenu ->
                                     DropdownMenuItem(
@@ -416,6 +394,28 @@ private fun SeasonScreenLayout(
                                             )
                                         },
                                     )
+                                    if (state.hasDownloads || state.autoDownloadEnabled) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    stringResource(
+                                                        CoreR.string.clear_season_downloads
+                                                    )
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    painter =
+                                                        painterResource(CoreR.drawable.ic_trash),
+                                                    contentDescription = null,
+                                                )
+                                            },
+                                            onClick = {
+                                                closeMenu()
+                                                clearSeasonDownloadsDialogOpen = true
+                                            },
+                                        )
+                                    }
                                     DropdownMenuItem(
                                         text = { Text(stringResource(CoreR.string.info)) },
                                         leadingIcon = {

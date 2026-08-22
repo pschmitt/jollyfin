@@ -2167,15 +2167,15 @@ Status: **done** (2026-08-22) - remote player-module tests, repository `ktfmtChe
 
 ## JF-85: Move Season delete-download action into the overflow menu
 
-- [ ] Remove the primary "Delete download" button from the Season view.
-- [ ] Add the same action to the Season view's overflow menu.
+- [x] Remove the primary "Delete download" button from the Season view.
+- [x] Add the same action to the Season view's overflow menu.
 - [ ] Verify the action and confirmation flow on a real device.
 
-Status: not started (2026-08-22).
+Status: implementation complete; device verification pending (2026-08-22).
 
 ## JF-86: Show newest seasons first
 
-- [ ] Reverse the season ordering in the Show view so the most recent seasons appear first.
+- [x] Reverse the season ordering in the Show view so the most recent seasons appear first.
 - [ ] Verify the ordering on a real device.
 
-Status: not started (2026-08-22).
+Status: implementation complete; device verification pending (2026-08-22).

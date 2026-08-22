@@ -547,7 +547,7 @@ private fun ShowScreenLayout(
                         val seasonRowItems =
                             (state.seasons.map { SeasonRowItem.Real(it) } +
                                     state.missingSeasons.map { SeasonRowItem.Missing(it) })
-                                .sortedBy { it.seasonNumber }
+                                .sortedByDescending { it.seasonNumber }
                         LazyRow(
                             contentPadding = PaddingValues(start = paddingStart, end = paddingEnd),
                             horizontalArrangement =
@@ -679,9 +679,9 @@ private fun EpisodeScreenLayoutPreview() {
 
 /**
  * Merges real [JollyfinSeason]s and Sonarr-known [UpcomingSeason] placeholders into one list so the
- * seasons row can be sorted by season number - rendering real seasons first and missing ones
- * appended at the end (as two separate `items()` blocks previously did) put a show's e.g. season 4
- * placeholder after 1-3 but ahead of a real season 5, wherever one existed.
+ * seasons row can be sorted by season number in descending order - rendering real seasons first and
+ * missing ones appended at the end (as two separate `items()` blocks previously did) put a show's
+ * e.g. season 4 placeholder after 1-3 but ahead of a real season 5, wherever one existed.
  */
 private sealed interface SeasonRowItem {
     val seasonNumber: Int
