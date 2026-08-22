@@ -2154,3 +2154,13 @@ Status: **done** (2026-08-19) - remote `ktfmtCheck`, `data`/`core` unit tests, a
 Status: **done** (2026-08-21) - remote `ktfmtCheck`, `data`/`core` unit tests, and
 `:app:phone:compileLibreDebugKotlin`/`:core:compileLibreDebugKotlin` all passed on rofl-13; verified
 live on a Zenfone 10 over wired adb.
+
+## JF-84: Ignore incomplete local downloads during playback
+
+- [x] Ignore `.download` and missing/empty local files when selecting a playback source, so a stale
+      local database row falls back to the server stream.
+- [x] Add a regression test covering an incomplete local source alongside a valid remote source.
+- [x] Verify formatting, compilation, and relevant unit tests remotely.
+
+Status: **done** (2026-08-22) - remote player-module tests, repository `ktfmtCheck`,
+`data`/`core` unit tests, and `:app:phone:compileLibreDebugKotlin` all passed on rofl-13.

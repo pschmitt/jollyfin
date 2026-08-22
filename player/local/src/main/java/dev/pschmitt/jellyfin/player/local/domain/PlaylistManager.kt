@@ -6,6 +6,7 @@ import dev.pschmitt.jellyfin.models.JollyfinChapter
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
 import dev.pschmitt.jellyfin.models.JollyfinItem
 import dev.pschmitt.jellyfin.models.JollyfinMovie
+import dev.pschmitt.jellyfin.models.JollyfinSource
 import dev.pschmitt.jellyfin.models.JollyfinSourceType
 import dev.pschmitt.jellyfin.models.JollyfinSources
 import dev.pschmitt.jellyfin.player.core.domain.models.ExternalSubtitle
@@ -13,6 +14,7 @@ import dev.pschmitt.jellyfin.player.core.domain.models.PlayerChapter
 import dev.pschmitt.jellyfin.player.core.domain.models.PlayerItem
 import dev.pschmitt.jellyfin.player.core.domain.models.TrickplayInfo
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -207,12 +209,7 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         Timber.d("Converting JollyfinItem ${this.id} to PlayerItem")
 
         val mediaSources = repository.getMediaSources(id, true)
-        val mediaSource =
-            if (mediaSourceIndex == null) {
-                mediaSources.firstOrNull { it.type == JollyfinSourceType.LOCAL } ?: mediaSources[0]
-            } else {
-                mediaSources[mediaSourceIndex]
-            }
+        val mediaSource = selectPlayableMediaSource(mediaSources, mediaSourceIndex)
         val externalSubtitles =
             mediaSource.mediaStreams
                 .filter { mediaStream ->
@@ -271,3 +268,31 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         }
     }
 }
+
+internal fun selectPlayableMediaSource(
+    mediaSources: List<JollyfinSource>,
+    mediaSourceIndex: Int?,
+): JollyfinSource {
+    val localSource = mediaSources.firstOrNull {
+        it.type == JollyfinSourceType.LOCAL && it.isPlayable()
+    }
+    val remoteSource = mediaSources.firstOrNull {
+        it.type == JollyfinSourceType.REMOTE && it.isPlayable()
+    }
+
+    return if (mediaSourceIndex != null) {
+        mediaSources.getOrNull(mediaSourceIndex)?.takeIf { it.isPlayable() }
+            ?: localSource
+            ?: remoteSource
+            ?: error("No playable media source")
+    } else {
+        localSource ?: remoteSource ?: error("No playable media source")
+    }
+}
+
+private fun JollyfinSource.isPlayable(): Boolean =
+    when (type) {
+        JollyfinSourceType.LOCAL ->
+            !path.endsWith(".download") && File(path).isFile && File(path).length() > 0L
+        JollyfinSourceType.REMOTE -> path.isNotBlank()
+    }
