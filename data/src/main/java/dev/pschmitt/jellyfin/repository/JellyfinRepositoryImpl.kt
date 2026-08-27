@@ -598,6 +598,11 @@ class JellyfinRepositoryImpl(
             jellyfinApi.userApi.getCurrentUser().content.policy?.enableContentDeletion == true
         }
 
+    override suspend fun isCurrentUserAdministrator(): Boolean =
+        withContext(Dispatchers.IO) {
+            jellyfinApi.userApi.getCurrentUser().content.policy?.isAdministrator == true
+        }
+
     override suspend fun getDownloads(): List<JollyfinItem> =
         withContext(Dispatchers.IO) {
             val items = mutableListOf<JollyfinItem>()

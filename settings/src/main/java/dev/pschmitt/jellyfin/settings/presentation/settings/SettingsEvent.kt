@@ -27,6 +27,8 @@ sealed interface SettingsEvent {
 
     data object NavigateToLocalAccess : SettingsEvent
 
+    data object NavigateToScanLibraries : SettingsEvent
+
     data class NavigateToSettings(val indexes: IntArray) : SettingsEvent
 
     data class NavigateToSettingsFileEdit(val filePath: String) : SettingsEvent

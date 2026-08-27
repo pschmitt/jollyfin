@@ -42,4 +42,7 @@ sealed interface ProfileDetailAction {
     data class OnLoginClick(val username: String, val password: String) : ProfileDetailAction
 
     data object OnQuickConnectClick : ProfileDetailAction
+
+    /** Triggers Jellyfin's "Scan All Libraries" task on this profile's server. */
+    data object OnScanLibraryClick : ProfileDetailAction
 }

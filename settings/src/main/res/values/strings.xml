@@ -18,6 +18,8 @@
     <string name="settings_category_advanced">Advanced</string>
     <string name="settings_category_advanced_summary">Image cache and other less frequently changed settings</string>
     <string name="settings_group_pvr_sync">Sonarr/Radarr sync</string>
+    <string name="settings_category_scan_libraries">Scan all libraries</string>
+    <string name="settings_category_scan_libraries_summary">Trigger a full library scan on the server</string>
     <string name="settings_category_servers">Servers</string>
     <string name="settings_category_servers_summary">Manage the Jellyfin servers connected to this app</string>
     <string name="settings_category_backup">Backup &amp; Restore</string>

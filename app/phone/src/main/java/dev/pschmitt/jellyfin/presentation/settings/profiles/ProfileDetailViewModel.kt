@@ -14,6 +14,7 @@ import dev.pschmitt.jellyfin.models.ProfileWithUserAndServer
 import dev.pschmitt.jellyfin.models.UiText
 import dev.pschmitt.jellyfin.presentation.settings.pvr.PvrTestState
 import dev.pschmitt.jellyfin.pvr.PvrConfigResolver
+import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.setup.domain.ProfileRepository
 import dev.pschmitt.jellyfin.setup.domain.SetupRepository
 import java.util.UUID
@@ -36,6 +37,7 @@ constructor(
     private val profileRepository: ProfileRepository,
     private val pvrConfigResolver: PvrConfigResolver,
     private val setupRepository: SetupRepository,
+    private val jellyfinRepository: JellyfinRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ProfileDetailState())
     val state = _state.asStateFlow()
@@ -116,6 +118,20 @@ constructor(
             } catch (_: Exception) {
                 false
             }
+        // The shared JellyfinRepository/JellyfinApi singleton always talks to whichever profile is
+        // currently active app-wide - only safe to ask it for admin status when that's this
+        // profile, otherwise we'd be labeling the ACTIVE profile's admin status as this one's.
+        val isActiveProfile = profileRepository.getCurrentProfile()?.profile?.id == id
+        val isAdministrator =
+            if (isActiveProfile) {
+                try {
+                    jellyfinRepository.isCurrentUserAdministrator()
+                } catch (_: Exception) {
+                    false
+                }
+            } else {
+                false
+            }
         _state.value =
             _state.value.copy(
                 name = current.profile.name,
@@ -127,6 +143,8 @@ constructor(
                 currentUserName = current.userName,
                 otherUsers = users.filterNot { it.id == current.profile.userId },
                 quickConnectEnabled = quickConnectEnabled,
+                isActiveProfile = isActiveProfile,
+                isAdministrator = isAdministrator,
             )
     }
 
@@ -172,6 +190,34 @@ constructor(
             is ProfileDetailAction.OnLoginClick ->
                 loginNewUser(id, action.username, action.password)
             is ProfileDetailAction.OnQuickConnectClick -> quickConnect(id)
+            is ProfileDetailAction.OnScanLibraryClick -> scanLibrary()
+        }
+    }
+
+    private fun scanLibrary() {
+        val current = _state.value
+        if (!current.isActiveProfile || !current.isAdministrator || current.scanningLibrary) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(scanningLibrary = true)
+            try {
+                jellyfinRepository.refreshLibrary()
+                _state.value =
+                    _state.value.copy(
+                        scanLibraryMessage =
+                            UiText.StringResource(CoreR.string.scan_libraries_started_toast)
+                    )
+            } catch (e: Exception) {
+                _state.value =
+                    _state.value.copy(
+                        scanLibraryMessage =
+                            UiText.StringResource(
+                                CoreR.string.scan_libraries_error_toast,
+                                e.message.orEmpty(),
+                            )
+                    )
+            } finally {
+                _state.value = _state.value.copy(scanningLibrary = false)
+            }
         }
     }
 

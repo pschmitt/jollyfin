@@ -67,6 +67,7 @@ import dev.pschmitt.jellyfin.presentation.settings.navigation.NavigationBarSetti
 import dev.pschmitt.jellyfin.presentation.settings.profiles.ProfileDetailScreen
 import dev.pschmitt.jellyfin.presentation.settings.profiles.ProfilesListScreen
 import dev.pschmitt.jellyfin.presentation.settings.qrexport.QrExportScreen
+import dev.pschmitt.jellyfin.presentation.settings.scanlibraries.ScanLibrariesScreen
 import dev.pschmitt.jellyfin.presentation.setup.addresses.ServerAddressesScreen
 import dev.pschmitt.jellyfin.presentation.setup.addserver.AddServerScreen
 import dev.pschmitt.jellyfin.presentation.setup.login.LoginScreen
@@ -112,6 +113,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object AutoDownloadRulesRoute
 
 @Serializable data object LocalAccessRoute
+
+@Serializable data object ScanLibrariesRoute
 
 @Serializable
 data class LibraryRoute(
@@ -705,6 +708,9 @@ fun NavigationRoot(
             composable<LocalAccessRoute> {
                 LocalAccessScreen(navigateBack = { navController.safePopBackStack() })
             }
+            composable<ScanLibrariesRoute> {
+                ScanLibrariesScreen(navigateBack = { navController.safePopBackStack() })
+            }
             composable<LibraryRoute> { backStackEntry ->
                 val route: LibraryRoute = backStackEntry.toRoute()
                 LibraryScreen(
@@ -894,6 +900,9 @@ fun NavigationRoot(
                         navController.safeNavigate(AutoDownloadRulesRoute)
                     },
                     navigateToLocalAccess = { navController.safeNavigate(LocalAccessRoute) },
+                    navigateToScanLibraries = {
+                        navController.safeNavigate(ScanLibrariesRoute)
+                    },
                     navigateToBackupSettings = { navController.safeNavigate(BackupSettingsRoute) },
                     navigateToQrExport = { navController.safeNavigate(QrExportRoute) },
                     navigateToProfiles = { navController.safeNavigate(ProfilesRoute) },

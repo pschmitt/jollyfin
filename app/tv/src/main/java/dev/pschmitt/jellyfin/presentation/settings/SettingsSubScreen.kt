@@ -78,6 +78,7 @@ fun SettingsSubScreen(
             // Local CLI access (jollyfin-cli pairing) is phone-only for this pass - nothing for
             // TV to react to.
             is SettingsEvent.NavigateToLocalAccess -> Unit
+            is SettingsEvent.NavigateToScanLibraries -> Unit
             is SettingsEvent.NavigateToBackupSettings -> Unit
             // Navbar customization is phone-only for this pass - nothing for TV to react to.
             is SettingsEvent.NavigateToNavigationBar -> Unit

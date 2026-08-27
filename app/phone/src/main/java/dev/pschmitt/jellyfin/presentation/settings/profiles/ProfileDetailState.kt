@@ -47,4 +47,10 @@ data class ProfileDetailState(
     val loginError: UiText? = null,
     val quickConnectEnabled: Boolean = false,
     val quickConnectCode: String? = null,
+    // Scan-library section. isAdministrator is only ever resolved (and the action only ever
+    // allowed) while this profile is the active one - see refreshServerAndUserSection's comment.
+    val isActiveProfile: Boolean = false,
+    val isAdministrator: Boolean = false,
+    val scanningLibrary: Boolean = false,
+    val scanLibraryMessage: UiText? = null,
 )

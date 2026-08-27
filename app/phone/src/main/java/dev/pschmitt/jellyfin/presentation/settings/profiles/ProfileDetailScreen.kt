@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.presentation.settings.profiles
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -81,10 +84,17 @@ fun ProfileDetailScreen(
     viewModel: ProfileDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(profileId) { viewModel.load(profileId) }
 
     LaunchedEffect(state.deleted) { if (state.deleted) navigateBack() }
+
+    LaunchedEffect(state.scanLibraryMessage) {
+        state.scanLibraryMessage?.let {
+            Toast.makeText(context, it.asString(context.resources), Toast.LENGTH_LONG).show()
+        }
+    }
 
     ProfileDetailScreenLayout(
         state = state,
@@ -151,6 +161,13 @@ private fun ProfileDetailScreenLayout(
                     addAddressError = state.addAddressError,
                     onAddressSelected = { onAction(ProfileDetailAction.OnAddressSelected(it)) },
                     onAddAddress = { onAction(ProfileDetailAction.OnAddAddressClick(it)) },
+                )
+
+                ScanLibraryCard(
+                    isActiveProfile = state.isActiveProfile,
+                    isAdministrator = state.isAdministrator,
+                    scanning = state.scanningLibrary,
+                    onScanClick = { onAction(ProfileDetailAction.OnScanLibraryClick) },
                 )
 
                 JellyfinUserCard(
@@ -506,6 +523,58 @@ private fun ServerAddressCard(
                 isLoading = inProgress,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+@Composable
+private fun ScanLibraryCard(
+    isActiveProfile: Boolean,
+    isAdministrator: Boolean,
+    scanning: Boolean,
+    onScanClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.medium),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+        ) {
+            Text(
+                text = stringResource(CoreR.string.scan_libraries_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(CoreR.string.scan_libraries_summary),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!isActiveProfile) {
+                Text(
+                    text = stringResource(CoreR.string.scan_libraries_inactive_profile),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (!isAdministrator) {
+                Text(
+                    text = stringResource(CoreR.string.scan_libraries_admin_required),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Button(
+                onClick = onScanClick,
+                enabled = isActiveProfile && isAdministrator && !scanning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(CoreR.string.scan_libraries_button))
+            }
         }
     }
 }

@@ -251,6 +251,13 @@
     <string name="local_access_cli_title">Get jollyfin-cli</string>
     <string name="local_access_cli_summary">Download the CLI itself onto this device with curl - no separate clone/copy from the repo needed</string>
     <string name="local_access_cli_copied_toast">Command copied</string>
+    <string name="scan_libraries_title">Scan all libraries</string>
+    <string name="scan_libraries_summary">Kicks off Jellyfin\'s \"Scan All Libraries\" task on the server, the same as running it from the admin dashboard</string>
+    <string name="scan_libraries_admin_required">Requires a Jellyfin administrator account - this user isn\'t one</string>
+    <string name="scan_libraries_button">Scan now</string>
+    <string name="scan_libraries_started_toast">Library scan started</string>
+    <string name="scan_libraries_error_toast">Couldn\'t start the library scan: %1$s</string>
+    <string name="scan_libraries_inactive_profile">Switch to this profile to scan its server\'s libraries</string>
     <string name="download_settings">Download settings</string>
     <string name="download_deleted_toast">Download deleted</string>
     <string name="delete_from_jellyfin">Delete from Jellyfin</string>

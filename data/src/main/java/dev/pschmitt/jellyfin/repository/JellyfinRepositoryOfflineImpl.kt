@@ -345,6 +345,8 @@ class JellyfinRepositoryOfflineImpl(
 
     override suspend fun canDeleteMedia(): Boolean = false
 
+    override suspend fun isCurrentUserAdministrator(): Boolean = false
+
     override fun getBaseUrl(): String {
         return ""
     }

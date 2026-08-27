@@ -134,6 +134,14 @@ interface JellyfinRepository {
      */
     suspend fun canDeleteMedia(): Boolean
 
+    /**
+     * Whether the current Jellyfin user is a server administrator - [refreshLibrary] (and
+     * Jellyfin's scheduled tasks in general) requires admin rights, so this gates the "Scan all
+     * libraries" action rather than offering it and having the request fail with a permissions
+     * error.
+     */
+    suspend fun isCurrentUserAdministrator(): Boolean
+
     fun getBaseUrl(): String
 
     /**

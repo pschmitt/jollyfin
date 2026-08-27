@@ -1296,6 +1296,18 @@ constructor(
                 },
                 nestedPreferenceGroups = advancedGroups.drop(2).take(1),
             )
+        val scanLibrariesPreference =
+            PreferenceCategory(
+                nameStringResource = R.string.settings_category_scan_libraries,
+                descriptionStringRes = R.string.settings_category_scan_libraries_summary,
+                iconDrawableId = R.drawable.ic_refresh_cw,
+                supportedDeviceTypes = listOf(DeviceType.PHONE),
+                onClick = {
+                    viewModelScope.launch {
+                        eventsChannel.send(SettingsEvent.NavigateToScanLibraries)
+                    }
+                },
+            )
         val advancedPreference =
             advancedCategory.copy(
                 nameStringResource = R.string.settings_category_advanced,
@@ -1306,6 +1318,7 @@ constructor(
                         PreferenceGroup(preferences = listOf(playerPreference)),
                         PreferenceGroup(preferences = listOf(integrationsPreference)),
                         PreferenceGroup(preferences = listOf(networkPreference)),
+                        PreferenceGroup(preferences = listOf(scanLibrariesPreference)),
                     ) + advancedGroups.drop(3),
             )
 

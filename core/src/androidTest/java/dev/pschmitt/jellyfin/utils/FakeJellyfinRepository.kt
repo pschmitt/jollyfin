@@ -144,6 +144,8 @@ class FakeJellyfinRepository(
 
     override suspend fun canDeleteMedia(): Boolean = error("not used in test")
 
+    override suspend fun isCurrentUserAdministrator(): Boolean = error("not used in test")
+
     override fun getBaseUrl(): String = error("not used in test")
 
     override suspend fun updateDeviceName(name: String) = error("not used in test")
