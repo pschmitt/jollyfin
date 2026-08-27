@@ -6,6 +6,7 @@ import dev.pschmitt.jellyfin.api.JellyfinApi
 import dev.pschmitt.jellyfin.database.ServerDatabaseDao
 import dev.pschmitt.jellyfin.models.JollyfinCollection
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
+import dev.pschmitt.jellyfin.models.JollyfinImages
 import dev.pschmitt.jellyfin.models.JollyfinItem
 import dev.pschmitt.jellyfin.models.JollyfinMovie
 import dev.pschmitt.jellyfin.models.JollyfinPerson
@@ -26,6 +27,7 @@ import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -99,11 +101,15 @@ class JellyfinRepositoryOfflineImpl(
         sortOrder: SortOrder,
         searchTerm: String?,
     ): Flow<PagingData<JollyfinItem>> {
-        TODO("Not yet implemented")
+        // No paged local query backs this in offline mode (see getItems() above) - fail soft
+        // instead of crashing the caller (JF-88).
+        return flowOf(PagingData.empty())
     }
 
     override suspend fun getPerson(personId: UUID): JollyfinPerson {
-        TODO("Not yet implemented")
+        // Cast/crew details aren't synced for offline use - return a stub rather than crash
+        // (JF-88).
+        return JollyfinPerson(id = personId, name = "", overview = "", images = JollyfinImages())
     }
 
     override suspend fun getPersonItems(
@@ -111,11 +117,32 @@ class JellyfinRepositoryOfflineImpl(
         includeTypes: List<BaseItemKind>?,
         recursive: Boolean,
     ): List<JollyfinItem> {
-        TODO("Not yet implemented")
+        return emptyList()
     }
 
     override suspend fun getFavoriteItems(): List<JollyfinItem> {
-        TODO("Not yet implemented")
+        // HomeViewModel.loadFavoritesItems() calls this unconditionally on every Home load, so a
+        // TODO() here crash-looped the whole app in Offline Mode (JF-88). Mirrors getResumeItems()
+        // below: pull movies/shows/episodes for the current server and filter on the `favorite`
+        // flag that markAsFavorite()/unmarkAsFavorite() already maintain locally.
+        return withContext(Dispatchers.IO) {
+            val movies =
+                database
+                    .getMoviesByServerId(appPreferences.getValue(appPreferences.currentServer)!!)
+                    .map { it.toJollyfinMovie(database, jellyfinApi.userId!!) }
+                    .filter { it.favorite }
+            val shows =
+                database
+                    .getShowsByServerId(appPreferences.getValue(appPreferences.currentServer)!!)
+                    .map { it.toJollyfinShow(database, jellyfinApi.userId!!) }
+                    .filter { it.favorite }
+            val episodes =
+                database
+                    .getEpisodesByServerId(appPreferences.getValue(appPreferences.currentServer)!!)
+                    .map { it.toJollyfinEpisode(database, jellyfinApi.userId!!) }
+                    .filter { it.favorite }
+            movies + shows + episodes
+        }
     }
 
     override suspend fun getSearchItems(query: String): List<JollyfinItem> {
@@ -213,7 +240,9 @@ class JellyfinRepositoryOfflineImpl(
         }
 
     override suspend fun getStreamUrl(itemId: UUID, mediaSourceId: String): String {
-        TODO("Not yet implemented")
+        // Local downloads resolve their path via JollyfinSourceDto.toJollyfinSource(database)
+        // instead, so this is unreachable in practice - fail soft rather than crash (JF-88).
+        return ""
     }
 
     override suspend fun getSegments(itemId: UUID): List<JollyfinSegment> =
@@ -323,7 +352,7 @@ class JellyfinRepositoryOfflineImpl(
     override fun getAccessToken(): String? = null
 
     override suspend fun updateDeviceName(name: String) {
-        TODO("Not yet implemented")
+        // No-op offline: nothing to sync the device name to (JF-88).
     }
 
     override suspend fun getUserConfiguration(): UserConfiguration? {

@@ -2188,3 +2188,60 @@ Status: implementation complete; device verification pending (2026-08-22).
 
 Status: **done** (2026-08-22) - Build, Lint, and Release CI passed for `7a559f9e`; pushed tag
 `v2.14.9`.
+
+## JF-88: `JellyfinRepositoryOfflineImpl` has unimplemented methods that crash Home in Offline Mode
+
+- [x] `pref_offline_mode` (`AppPreferences.offlineMode`) is a single global `SharedPreferences`
+      flag - not per-profile - that `RepositoryModule.provideJellyfinRepository()` uses to swap
+      the entire `JellyfinRepository` binding to `JellyfinRepositoryOfflineImpl`. Once it flips
+      true, every profile hits the offline implementation until it's flipped back.
+- [x] `JellyfinRepositoryOfflineImpl.getFavoriteItems()`
+      (`data/src/main/java/dev/pschmitt/jellyfin/repository/JellyfinRepositoryOfflineImpl.kt:117`)
+      was a literal `TODO("Not yet implemented")`. `HomeViewModel.loadFavoritesItems()` calls it
+      unconditionally on every Home load, so as soon as Offline Mode was on, Home crash-looped on
+      launch (`kotlin.NotImplementedError` on a `DefaultDispatcher` worker, uncaught -> process
+      death) for every profile. Reproduced live on a Zenfone 10 (see below). Fixed: implemented
+      against the local Room DB, mirroring `getResumeItems()`'s pattern immediately below it -
+      pull movies/shows/episodes for the current server via `getMoviesByServerId`/
+      `getShowsByServerId`/`getEpisodesByServerId`, map through the existing
+      `toJollyfinMovie`/`toJollyfinShow`/`toJollyfinEpisode(database, userId)` mappers, and filter
+      on `.favorite` (already populated from the `userdata.favorite` column those mappers already
+      read, which `markAsFavorite()`/`unmarkAsFavorite()` already keep up to date locally).
+- [x] Same file had five more `TODO("Not yet implemented")` stubs, all equally reachable from
+      normal navigation, not just edge cases: `getItemsPaging` (backs any paged item list),
+      `getPerson`, `getPersonItems`, `getStreamUrl` (would matter for offline playback, but local
+      downloads actually resolve their path via `JollyfinSourceDto.toJollyfinSource(database)`
+      instead, never through here), and `updateDeviceName`. None of these have a meaningful local
+      implementation available (no cast/crew or paged-browse data is synced for offline use), so
+      each now fails soft instead of crashing: `getItemsPaging` returns `flowOf(PagingData.empty())`,
+      `getPerson` returns a stub `JollyfinPerson`, `getPersonItems`/nothing-backing returns
+      `emptyList()`, `getStreamUrl` returns `""`, `updateDeviceName` is a no-op - matching the
+      fail-soft pattern the file already uses elsewhere (e.g. `getRecommendedItems()`'s
+      `emptyList()`).
+- [x] Turned out there's no need for a new "disable offline mode" escape hatch: Settings > Downloads
+      already has a working "Offline mode" `PreferenceSwitch` bound to this same
+      `appPreferences.offlineMode` (`SettingsViewModel.kt:825`, restarts the activity on toggle).
+      The actual gap was purely that Home crashed before Settings could ever be reached - fixing
+      the crash restores that existing escape hatch, no new one needed.
+- [ ] Add regression coverage for `getFavoriteItems()` (and ideally the other stubs) under
+      `JellyfinRepositoryOfflineImpl`, since none of the existing offline-repo tests caught this.
+- [x] Verify formatting (`just lint`) and `data`/`core` unit tests (`just test`) remotely on
+      rofl-13.
+
+Found while recording a Play Console foreground-service demo video (FINDROID-71's disposable
+Jellyfin fixture, `ci/jellyfin/`) on a Zenfone 10 over wired adb: after cycling the fixture profile
+through several throttled/interrupted background downloads, Offline Mode ended up enabled and
+JollyFin then crash-looped on launch for *both* the fixture profile and the real `pschmitt@rofl-11`
+profile - `pm clear`'d at the user's request to recover the device, which also wiped the real
+profile's login (no backup had been exported first; the app does support Settings > Backup &
+Restore for next time). Root cause traced by reading source (not confirmed by reproducing live):
+`HomeAction.OnEnableOfflineMode` (`HomeViewModel.kt:404`) is the only writer of
+`appPreferences.offlineMode`, set unconditionally to `true` with no corresponding "disable" action
+anywhere in the codebase. It's almost certainly wired to a button on Home's load-failure/retry UI
+(alongside `OnRetryClick`) - one of many scripted `adb shell input tap` taps fired during this
+session's network-interruption testing most likely landed on it instead of Retry. Two follow-ups:
+add an "Disable offline mode" action so this is reversible in-app, and reconsider a one-way,
+irreversible, blindly-tappable "go offline forever" action reachable from a transient error state.
+
+Status: implementation complete (2026-08-27) - remote `ktfmtCheck` and `data`/`core` unit tests
+passed on rofl-13; regression test coverage for the fixed stubs still pending.
