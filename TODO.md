@@ -2227,6 +2227,7 @@ Status: **done** (2026-08-22) - Build, Lint, and Release CI passed for `7a559f9e
       `JellyfinRepositoryOfflineImpl`, since none of the existing offline-repo tests caught this.
 - [x] Verify formatting (`just lint`) and `data`/`core` unit tests (`just test`) remotely on
       rofl-13.
+- [x] Bump the patch release from 2.14.9 (66) to 2.14.10 (67).
 
 Found while recording a Play Console foreground-service demo video (FINDROID-71's disposable
 Jellyfin fixture, `ci/jellyfin/`) on a Zenfone 10 over wired adb: after cycling the fixture profile
@@ -2243,5 +2244,6 @@ session's network-interruption testing most likely landed on it instead of Retry
 add an "Disable offline mode" action so this is reversible in-app, and reconsider a one-way,
 irreversible, blindly-tappable "go offline forever" action reachable from a transient error state.
 
-Status: implementation complete (2026-08-27) - remote `ktfmtCheck` and `data`/`core` unit tests
-passed on rofl-13; regression test coverage for the fixed stubs still pending.
+Status: **done** (2026-08-27) - remote `ktfmtCheck` and `data`/`core` unit tests passed on rofl-13
+both before and after rebasing onto upstream dependency-bump commits; Build/Lint/Release CI green
+on `78f65ed1`; pushed as `v2.14.10`. Regression test coverage for the fixed stubs still pending.
