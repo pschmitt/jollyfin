@@ -900,9 +900,7 @@ fun NavigationRoot(
                         navController.safeNavigate(AutoDownloadRulesRoute)
                     },
                     navigateToLocalAccess = { navController.safeNavigate(LocalAccessRoute) },
-                    navigateToScanLibraries = {
-                        navController.safeNavigate(ScanLibrariesRoute)
-                    },
+                    navigateToScanLibraries = { navController.safeNavigate(ScanLibrariesRoute) },
                     navigateToBackupSettings = { navController.safeNavigate(BackupSettingsRoute) },
                     navigateToQrExport = { navController.safeNavigate(QrExportRoute) },
                     navigateToProfiles = { navController.safeNavigate(ProfilesRoute) },

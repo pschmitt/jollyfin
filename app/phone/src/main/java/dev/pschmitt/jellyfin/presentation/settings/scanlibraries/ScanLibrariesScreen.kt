@@ -106,9 +106,7 @@ private fun ScanLibrariesScreenLayout(
     ) { innerPadding ->
         Column(
             modifier =
-                Modifier.fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(MaterialTheme.spacings.default)
+                Modifier.fillMaxSize().padding(innerPadding).padding(MaterialTheme.spacings.default)
         ) {
             Text(
                 text = stringResource(CoreR.string.scan_libraries_summary),
