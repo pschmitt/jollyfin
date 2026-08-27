@@ -51,9 +51,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -63,6 +65,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.models.ServerAddress
@@ -76,6 +79,7 @@ import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.setup.R as SetupR
 import java.util.UUID
+import org.jellyfin.sdk.model.api.ImageType
 
 @Composable
 fun ProfileDetailScreen(
@@ -145,9 +149,17 @@ private fun ProfileDetailScreenLayout(
                         .padding(MaterialTheme.spacings.medium),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
             ) {
+                val baseUrl =
+                    state.addresses
+                        .firstOrNull { it.id == state.currentAddressId }
+                        ?.address
+                        .orEmpty()
+
                 ProfileHeaderCard(
                     name = state.name,
                     isMain = state.isMain,
+                    userId = state.currentUserId,
+                    baseUrl = baseUrl,
                     onRenameClick = { showRenameDialog = true },
                     onSetAsMainClick = { onAction(ProfileDetailAction.OnSetAsMainClick) },
                     onDeleteClick = { showDeleteDialog = true },
@@ -171,8 +183,10 @@ private fun ProfileDetailScreenLayout(
                 )
 
                 JellyfinUserCard(
+                    currentUserId = state.currentUserId,
                     currentUserName = state.currentUserName,
                     otherUsers = state.otherUsers,
+                    baseUrl = baseUrl,
                     inProgress = state.userOperationInProgress,
                     loginError = state.loginError,
                     quickConnectEnabled = state.quickConnectEnabled,
@@ -351,6 +365,8 @@ private fun ProfileDetailScreenLayout(
 private fun ProfileHeaderCard(
     name: String,
     isMain: Boolean,
+    userId: UUID?,
+    baseUrl: String,
     onRenameClick: () -> Unit,
     onSetAsMainClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -368,19 +384,13 @@ private fun ProfileHeaderCard(
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.medium),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier =
-                        Modifier.size(56.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = name.take(1).uppercase(),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
+                UserAvatar(
+                    userId = userId,
+                    baseUrl = baseUrl,
+                    name = name,
+                    textStyle = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.size(56.dp),
+                )
                 Spacer(modifier = Modifier.size(MaterialTheme.spacings.medium))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -623,8 +633,10 @@ private fun AddressRow(address: String, selected: Boolean, enabled: Boolean, onC
 
 @Composable
 private fun JellyfinUserCard(
+    currentUserId: UUID?,
     currentUserName: String,
     otherUsers: List<User>,
+    baseUrl: String,
     inProgress: Boolean,
     loginError: UiText?,
     quickConnectEnabled: Boolean,
@@ -664,21 +676,33 @@ private fun JellyfinUserCard(
                 text = stringResource(CoreR.string.profile_user_section_title),
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(
-                text =
-                    stringResource(
-                        CoreR.string.integrations_jellyfin_signed_in_as,
-                        currentUserName,
-                    ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UserAvatar(
+                    userId = currentUserId,
+                    baseUrl = baseUrl,
+                    name = currentUserName,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.size(32.dp),
+                )
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(
+                    text =
+                        stringResource(
+                            CoreR.string.integrations_jellyfin_signed_in_as,
+                            currentUserName,
+                        ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (otherUsers.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
                 otherUsers.forEach { user ->
                     UserRow(
                         name = user.name,
+                        userId = user.id,
+                        baseUrl = baseUrl,
                         enabled = !inProgress,
                         onClick = { onUserSelected(user.id) },
                     )
@@ -819,8 +843,48 @@ private fun JellyfinUserCard(
     }
 }
 
+/**
+ * A user's initials, with their Jellyfin profile picture (`/users/{id}/Images/Primary`) layered on
+ * top once it loads - Coil renders nothing over the initials for a user with no picture set, so no
+ * separate "has an image" check is needed. Mirrors the tv app's ProfileButton/UserItem pattern.
+ */
 @Composable
-private fun UserRow(name: String, enabled: Boolean, onClick: () -> Unit) {
+private fun UserAvatar(
+    userId: UUID?,
+    baseUrl: String,
+    name: String,
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = name.take(1).uppercase(),
+            style = textStyle,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        if (userId != null && baseUrl.isNotBlank()) {
+            AsyncImage(
+                model = "$baseUrl/users/$userId/Images/${ImageType.PRIMARY}",
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserRow(
+    name: String,
+    userId: UUID?,
+    baseUrl: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -829,19 +893,13 @@ private fun UserRow(name: String, enabled: Boolean, onClick: () -> Unit) {
                 .clickable(enabled = enabled, onClick = onClick)
                 .padding(vertical = 4.dp),
     ) {
-        Box(
-            modifier =
-                Modifier.size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = name.take(1).uppercase(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
+        UserAvatar(
+            userId = userId,
+            baseUrl = baseUrl,
+            name = name,
+            textStyle = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.size(40.dp),
+        )
         Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
         Text(
             text = name,
