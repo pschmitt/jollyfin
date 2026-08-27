@@ -185,20 +185,23 @@ constructor(
         val discoverByKey =
             current.discoverSections.associateBy { HomeSectionKeys.discover(it.titleRes) }
 
-        val natural = buildList {
-            if (current.pvrServiceIcons.isNotEmpty()) add(HomeSectionKeys.ACTIVE_DOWNLOADS)
-            addAll(showViews.map { HomeSectionKeys.view(it.view.id) })
-            if (current.nextUpSection != null) add(HomeSectionKeys.NEXT_UP)
-            if (current.resumeSection != null) add(HomeSectionKeys.CONTINUE_WATCHING)
-            if (current.favoritesSection != null) add(HomeSectionKeys.FAVORITES)
-            addAll(movieViews.map { HomeSectionKeys.view(it.view.id) })
-            addAll(otherViews.map { HomeSectionKeys.view(it.view.id) })
-            if (current.suggestionsSection != null) add(HomeSectionKeys.SUGGESTIONS)
-            addAll(
-                discoverKeyOrder.map { HomeSectionKeys.discover(it) }.filter { it in discoverByKey }
-            )
-        }
-            .filterNot { it in hidden }
+        val natural =
+            buildList {
+                    if (current.pvrServiceIcons.isNotEmpty()) add(HomeSectionKeys.ACTIVE_DOWNLOADS)
+                    addAll(showViews.map { HomeSectionKeys.view(it.view.id) })
+                    if (current.nextUpSection != null) add(HomeSectionKeys.NEXT_UP)
+                    if (current.resumeSection != null) add(HomeSectionKeys.CONTINUE_WATCHING)
+                    if (current.favoritesSection != null) add(HomeSectionKeys.FAVORITES)
+                    addAll(movieViews.map { HomeSectionKeys.view(it.view.id) })
+                    addAll(otherViews.map { HomeSectionKeys.view(it.view.id) })
+                    if (current.suggestionsSection != null) add(HomeSectionKeys.SUGGESTIONS)
+                    addAll(
+                        discoverKeyOrder
+                            .map { HomeSectionKeys.discover(it) }
+                            .filter { it in discoverByKey }
+                    )
+                }
+                .filterNot { it in hidden }
         val persisted =
             homeSectionOrderFromString(appPreferences.getValue(appPreferences.homeSectionOrder))
         _state.value = current.copy(sectionOrder = resolveHomeSectionOrder(natural, persisted))

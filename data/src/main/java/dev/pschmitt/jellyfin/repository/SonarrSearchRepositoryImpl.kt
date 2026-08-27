@@ -108,14 +108,16 @@ class SonarrSearchRepositoryImpl(
             }
     }
 
-    override suspend fun grabRelease(release: PvrRelease): Result<Unit> = runAction {
-        it.grabRelease(release.guid, release.indexerId)
-    }
-        .onSuccess {
-            // Don't know which episode this release belonged to from here - clear everything
-            // rather than risk showing a stale list that still offers an already-grabbed release.
-            releaseCache.clear()
-        }
+    override suspend fun grabRelease(release: PvrRelease): Result<Unit> =
+        runAction {
+                it.grabRelease(release.guid, release.indexerId)
+            }
+            .onSuccess {
+                // Don't know which episode this release belonged to from here - clear everything
+                // rather than risk showing a stale list that still offers an already-grabbed
+                // release.
+                releaseCache.clear()
+            }
 
     override suspend fun deleteSeriesByTvdbId(tvdbId: String): Result<Unit> = runAction { api ->
         val seriesId =
