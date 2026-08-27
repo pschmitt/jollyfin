@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -233,7 +233,14 @@ private fun ShowScreenLayout(
         onHomeClick = { onAction(ShowAction.OnHomeClick) },
         onSettingsClick = { onAction(ShowAction.OnSettingsClick) },
     ) {
-        PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
+        // Same default Material3 indicator as Downloads/Library/Home - one loading-feedback
+        // language across the whole app instead of a screen-specific spinner. fillMaxSize keeps
+        // the indicator centered even before content (and its size) exists.
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
             state.show?.let { show ->
                 Column(modifier = Modifier.fillMaxWidth().verticalScroll(scrollState)) {
                     ItemHeader(
@@ -616,7 +623,7 @@ private fun ShowScreenLayout(
                     }
                     Spacer(Modifier.height(paddingBottom))
                 }
-            } ?: run { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+            }
         }
     }
 
