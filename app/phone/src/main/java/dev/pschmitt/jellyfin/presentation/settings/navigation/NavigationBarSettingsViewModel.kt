@@ -193,11 +193,10 @@ constructor(
                 val current = pinnedItems()
                 val refreshed = current.map { pinned ->
                     if (!pinned.imageUri.isNullOrBlank()) return@map pinned
-                    val item =
-                        runCatching {
-                                repository.getItem(UUID.fromString(pinned.id))
-                            }
-                            .getOrNull()
+                    val item = runCatching {
+                        repository.getItem(UUID.fromString(pinned.id))
+                    }
+                        .getOrNull()
                     val resolved = item?.let(::pinnedItemFor)
                     if (resolved?.type == pinned.type && !resolved.imageUri.isNullOrBlank()) {
                         pinned.copy(imageUri = resolved.imageUri)
@@ -267,17 +266,16 @@ constructor(
             }
 
             _state.emit(_state.value.copy(searchResults = emptyList(), isLoading = true))
-            val results =
-                runCatching {
-                        repository.getSearchItems(trimmedQuery)
-                    }
-                    .getOrDefault(emptyList())
-                    .filter {
-                        it is JollyfinMovie ||
-                            it is JollyfinShow ||
-                            it is JollyfinEpisode ||
-                            it is JollyfinSeason
-                    }
+            val results = runCatching {
+                repository.getSearchItems(trimmedQuery)
+            }
+                .getOrDefault(emptyList())
+                .filter {
+                    it is JollyfinMovie ||
+                        it is JollyfinShow ||
+                        it is JollyfinEpisode ||
+                        it is JollyfinSeason
+                }
             _state.emit(_state.value.copy(searchResults = results, isLoading = false))
         }
     }
