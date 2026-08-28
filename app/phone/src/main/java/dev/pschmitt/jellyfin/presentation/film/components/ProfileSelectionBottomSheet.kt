@@ -90,6 +90,7 @@ private fun ProfileSelectionBottomSheetLayout(
                     selected = profile.profile.id == state.currentProfileId,
                     onClick = { onAction(ProfilesAction.OnProfileClick(profile.profile.id)) },
                     modifier = Modifier.fillMaxWidth(),
+                    baseUrl = state.serverBaseUrls[profile.serverId].orEmpty(),
                 )
             }
             item(key = "manage") {

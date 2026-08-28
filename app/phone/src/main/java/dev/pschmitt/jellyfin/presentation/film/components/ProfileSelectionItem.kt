@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,17 +22,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.models.Profile
 import dev.pschmitt.jellyfin.models.ProfileWithUserAndServer
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import java.util.UUID
+import org.jellyfin.sdk.model.api.ImageType
 
 /**
  * A single row in the Profiles switcher (home header bottom sheet + Settings > Profiles list) -
@@ -44,6 +48,7 @@ fun ProfileSelectionItem(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    baseUrl: String = "",
 ) {
     Card(
         onClick = onClick,
@@ -77,6 +82,17 @@ fun ProfileSelectionItem(
                         if (selected) MaterialTheme.colorScheme.onPrimary
                         else MaterialTheme.colorScheme.onPrimaryContainer,
                 )
+                // Layered on top of the initials once it loads - Coil renders nothing over them
+                // for a user with no picture set, so no separate "has an image" check is needed.
+                if (baseUrl.isNotBlank()) {
+                    AsyncImage(
+                        model =
+                            "$baseUrl/users/${profile.profile.userId}/Images/${ImageType.PRIMARY}",
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(MaterialTheme.spacings.medium))
             Column(modifier = Modifier.weight(1f)) {

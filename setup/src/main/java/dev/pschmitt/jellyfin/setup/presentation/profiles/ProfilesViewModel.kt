@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.setup.domain.ProfileRepository
+import dev.pschmitt.jellyfin.setup.domain.SetupRepository
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -13,8 +14,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class ProfilesViewModel @Inject constructor(private val repository: ProfileRepository) :
-    ViewModel() {
+class ProfilesViewModel
+@Inject
+constructor(
+    private val repository: ProfileRepository,
+    private val setupRepository: SetupRepository,
+) : ViewModel() {
     private val _state = MutableStateFlow(ProfilesState())
     val state = _state.asStateFlow()
 
@@ -25,7 +30,26 @@ class ProfilesViewModel @Inject constructor(private val repository: ProfileRepos
         viewModelScope.launch {
             val profiles = repository.getProfiles()
             val currentProfileId = repository.getCurrentProfile()?.profile?.id
-            _state.emit(ProfilesState(profiles = profiles, currentProfileId = currentProfileId))
+            val serverBaseUrls =
+                try {
+                    setupRepository.getServers().associate { serverWithAddresses ->
+                        val server = serverWithAddresses.server
+                        val address =
+                            serverWithAddresses.addresses
+                                .firstOrNull { it.id == server.currentServerAddressId }
+                                ?.address ?: serverWithAddresses.addresses.firstOrNull()?.address
+                        server.id to address.orEmpty()
+                    }
+                } catch (_: Exception) {
+                    emptyMap()
+                }
+            _state.emit(
+                ProfilesState(
+                    profiles = profiles,
+                    currentProfileId = currentProfileId,
+                    serverBaseUrls = serverBaseUrls,
+                )
+            )
         }
     }
 
