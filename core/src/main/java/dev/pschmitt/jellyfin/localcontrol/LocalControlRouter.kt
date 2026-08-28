@@ -149,9 +149,9 @@ constructor(
      */
     private fun stopApp(): LocalControlResponse {
         Thread {
-                Thread.sleep(300)
-                Runtime.getRuntime().exit(0)
-            }
+            Thread.sleep(300)
+            Runtime.getRuntime().exit(0)
+        }
             .start()
         return LocalControlResponse(
             LocalControlStatus.OK,
