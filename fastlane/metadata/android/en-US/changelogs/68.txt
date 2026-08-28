@@ -1,0 +1,3 @@
+Added:
+- "Scan all libraries" action in Settings > Advanced and on the active profile's page (admin accounts only).
+- Jellyfin profile pictures now show on the profile detail screen and in the profile switcher.
