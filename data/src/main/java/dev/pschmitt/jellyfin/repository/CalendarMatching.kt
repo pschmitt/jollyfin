@@ -29,11 +29,10 @@ import java.time.format.DateTimeParseException
  */
 private const val UNSET_PROVIDER_ID = 0
 
-private fun List<dev.pschmitt.jellyfin.api.pvr.PvrImage>.posterUrl(): String? =
-    firstOrNull {
-            it.coverType.equals("poster", ignoreCase = true)
-        }
-        ?.let { it.remoteUrl ?: it.url }
+private fun List<dev.pschmitt.jellyfin.api.pvr.PvrImage>.posterUrl(): String? = firstOrNull {
+    it.coverType.equals("poster", ignoreCase = true)
+}
+    ?.let { it.remoteUrl ?: it.url }
 
 fun matchSonarrCalendar(
     entries: List<SonarrCalendarEntry>,

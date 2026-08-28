@@ -104,25 +104,22 @@ fun matchRadarr(
  * a retried download that shows up as two queue rows before Sonarr/Radarr cleans up the old one),
  * the later entry wins - [toMap] keeps the last occurrence of a duplicate key.
  */
-fun List<PvrQueueEntry>.toQueueStatusMap(): Map<UUID, QueueStatus> =
-    mapNotNull { entry ->
-            entry.item?.let { it.id to entry.status.copy(queueItemId = entry.queueItemId) }
-        }
-        .toMap()
+fun List<PvrQueueEntry>.toQueueStatusMap(): Map<UUID, QueueStatus> = mapNotNull { entry ->
+    entry.item?.let { it.id to entry.status.copy(queueItemId = entry.queueItemId) }
+}
+    .toMap()
 
-fun List<PvrQueueEntry>.toRadarrQueueStatusMap(): Map<Int, QueueStatus> =
-    filter {
-            it.status.source == PvrSource.RADARR
-        }
-        .mapNotNull { entry -> entry.tmdbId?.let { it to entry.status } }
-        .toMap()
+fun List<PvrQueueEntry>.toRadarrQueueStatusMap(): Map<Int, QueueStatus> = filter {
+    it.status.source == PvrSource.RADARR
+}
+    .mapNotNull { entry -> entry.tmdbId?.let { it to entry.status } }
+    .toMap()
 
-fun List<PvrQueueEntry>.toSonarrQueueStatusMap(): Map<Int, QueueStatus> =
-    filter {
-            it.status.source == PvrSource.SONARR
-        }
-        .mapNotNull { entry -> entry.sonarrEpisodeId?.let { it to entry.status } }
-        .toMap()
+fun List<PvrQueueEntry>.toSonarrQueueStatusMap(): Map<Int, QueueStatus> = filter {
+    it.status.source == PvrSource.SONARR
+}
+    .mapNotNull { entry -> entry.sonarrEpisodeId?.let { it to entry.status } }
+    .toMap()
 
 /**
  * The key two [PvrQueueEntry]s share when they're actually duplicates of the same underlying
@@ -176,11 +173,10 @@ private fun sonarrQueueTitle(
 
 private const val UNKNOWN_TITLE = "Unknown"
 
-private fun List<PvrImage>.posterUrl(): String? =
-    firstOrNull {
-            it.coverType.equals("poster", ignoreCase = true)
-        }
-        ?.let { it.remoteUrl ?: it.url }
+private fun List<PvrImage>.posterUrl(): String? = firstOrNull {
+    it.coverType.equals("poster", ignoreCase = true)
+}
+    ?.let { it.remoteUrl ?: it.url }
 
 private fun SonarrQueueItem.toQueueStatus(): QueueStatus =
     buildQueueStatus(
@@ -216,11 +212,10 @@ private fun RadarrQueueItem.toQueueStatus(): QueueStatus =
  * verbose for a one-line summary and is only used as a fallback.
  */
 private fun List<PvrStatusMessage>.toDisplayText(): String? {
-    val reasons =
-        filter {
-                it.messages.isEmpty()
-            }
-            .mapNotNull { it.title?.takeIf(String::isNotBlank) }
+    val reasons = filter {
+        it.messages.isEmpty()
+    }
+        .mapNotNull { it.title?.takeIf(String::isNotBlank) }
     if (reasons.isNotEmpty()) return reasons.joinToString("; ")
     val first = firstOrNull() ?: return null
     return listOfNotNull(first.title?.takeIf(String::isNotBlank), first.messages.firstOrNull())
