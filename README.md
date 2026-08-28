@@ -4,19 +4,13 @@
 
 JollyFin is [pschmitt](https://github.com/pschmitt)'s fork of
 [Findroid](https://github.com/jarnedemeulemeester/findroid), a third-party native Android/Android
-TV client for Jellyfin — with added features such as Sonarr/Radarr integration. It was
-previously known as Findroid+; the app was renamed (new package id, new identity) but the fork
-lineage and GPLv3 license carry over unchanged.
+TV client for Jellyfin — with added features such as Sonarr/Radarr integration.
 
 **This project is in its early stages so expect bugs.**
 
 ## Installation
 
-JollyFin isn't published on Google Play, Amazon Appstore, F-Droid, or IzzyOnDroid — those
-listings are for the upstream Findroid project, under a different package name, and installing
-from them will **not** give you this fork.
-
-Instead, install and auto-update JollyFin via [Obtainium](https://obtainium.imranr.dev/)
+Install and auto-update JollyFin via [Obtainium](https://obtainium.imranr.dev/)
 pointed at this repository, or grab an APK directly from the
 [Releases page](https://github.com/pschmitt/jollyfin/releases).
 
