@@ -41,7 +41,7 @@ zxing-core = "3.5.4"
 okhttp = "5.5.0"
 reorderable = "3.1.0"
 timber = "5.0.1"
-slf4j = "2.0.18"
+slf4j = "2.0.19"
 slf4j-android = "2.0.17-0"
 
 [libraries]
