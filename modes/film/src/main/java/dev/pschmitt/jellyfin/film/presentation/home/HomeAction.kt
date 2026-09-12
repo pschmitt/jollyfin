@@ -12,6 +12,9 @@ sealed interface HomeAction {
 
     data class OnLibraryClick(val library: JollyfinCollection) : HomeAction
 
+    /** The "Pending downloads" header's arrow, same pattern as a library shelf's own. */
+    data object OnDownloadsClick : HomeAction
+
     data object OnRetryClick : HomeAction
 
     data object OnEnableOfflineMode : HomeAction

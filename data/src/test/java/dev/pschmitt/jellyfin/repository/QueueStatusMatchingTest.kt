@@ -19,6 +19,7 @@ import dev.pschmitt.jellyfin.models.JollyfinMovie
 import dev.pschmitt.jellyfin.models.JollyfinShow
 import dev.pschmitt.jellyfin.models.PvrSource
 import dev.pschmitt.jellyfin.models.QueueItemStatus
+import dev.pschmitt.jellyfin.models.QueueStatus
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -547,6 +548,179 @@ class QueueStatusMatchingTest {
         assertNull(matched.toCandidate().episodeLabel)
         assertTrue(matched.toCandidate().canImport)
         assertTrue(!unmatched.toCandidate().canImport)
+    }
+
+    // endregion
+
+    // region season clustering
+
+    @Test
+    fun `seasonClusterKey is null for anything but a healthy per-episode Sonarr entry`() {
+        val healthy =
+            seasonClusterKey(
+                source = PvrSource.SONARR,
+                status = QueueItemStatus.DOWNLOADING,
+                tmdbId = 1000,
+                seasonNumber = 3,
+                episodeNumber = 5,
+            )
+        assertEquals(1000 to 3, healthy)
+
+        assertNull(
+            "Radarr has no season concept",
+            seasonClusterKey(PvrSource.RADARR, QueueItemStatus.DOWNLOADING, 1000, 3, 5),
+        )
+        assertNull(
+            "a problem entry stays individually actionable",
+            seasonClusterKey(PvrSource.SONARR, QueueItemStatus.WARNING, 1000, 3, 5),
+        )
+        assertNull(
+            "a season-pack row (no per-episode number) already reads as a season on its own",
+            seasonClusterKey(PvrSource.SONARR, QueueItemStatus.DOWNLOADING, 1000, 3, null),
+        )
+        assertNull(
+            "nothing safe to cluster by without a resolved series/season",
+            seasonClusterKey(PvrSource.SONARR, QueueItemStatus.DOWNLOADING, null, null, 5),
+        )
+    }
+
+    @Test
+    fun `aggregateQueueStatuses sums sizes and speed, recomputes percent, and picks the most in-progress status`() {
+        val statuses =
+            listOf(
+                QueueStatus(
+                    source = PvrSource.SONARR,
+                    status = QueueItemStatus.QUEUED,
+                    sizeBytes = 1000,
+                    remainingBytes = 1000,
+                ),
+                QueueStatus(
+                    source = PvrSource.SONARR,
+                    status = QueueItemStatus.DOWNLOADING,
+                    sizeBytes = 1000,
+                    remainingBytes = 250,
+                    speedBytesPerSecond = 50,
+                ),
+            )
+
+        val aggregate = aggregateQueueStatuses(statuses)
+
+        assertEquals(PvrSource.SONARR, aggregate.source)
+        assertEquals(QueueItemStatus.DOWNLOADING, aggregate.status)
+        assertEquals(2000L, aggregate.sizeBytes)
+        assertEquals(1250L, aggregate.remainingBytes)
+        assertEquals(50L, aggregate.speedBytesPerSecond)
+        assertEquals(37, aggregate.percent)
+        assertEquals(25L, aggregate.etaSeconds)
+    }
+
+    @Test
+    fun `seasonClusterTitle strips the per-episode suffix`() {
+        assertEquals("Some Show - Season 3", seasonClusterTitle("Some Show - S3E5", 3))
+    }
+
+    @Test
+    fun `clusterSeasonsForDisplay merges distinct healthy episodes of the same season into one entry`() {
+        val series = listOf(SonarrSeries(id = 1, tvdbId = 1000, tmdbId = 2000, title = "Some Show"))
+        val queue =
+            listOf(
+                SonarrQueueItem(
+                    id = 1,
+                    seriesId = 1,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(5),
+                    status = "downloading",
+                    size = 1000,
+                    sizeleft = 250,
+                ),
+                SonarrQueueItem(
+                    id = 2,
+                    seriesId = 1,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(6),
+                    status = "queued",
+                    size = 1000,
+                    sizeleft = 1000,
+                ),
+                // Different season - must not be folded into the season-3 cluster.
+                SonarrQueueItem(
+                    id = 3,
+                    seriesId = 1,
+                    seasonNumber = 4,
+                    episode = SonarrEpisode(1),
+                    status = "downloading",
+                ),
+            )
+
+        val result = matchSonarr(series, queue, emptyList(), emptyMap()).clusterSeasonsForDisplay()
+
+        assertEquals(2, result.size)
+        val cluster = result.single { it.title == "Some Show - Season 3" }
+        assertNull(cluster.item)
+        assertEquals(2000L, cluster.status.sizeBytes)
+        assertEquals(QueueItemStatus.DOWNLOADING, cluster.status.status)
+        assertTrue(result.any { it.title == "Some Show - S4E1" })
+    }
+
+    @Test
+    fun `clusterSeasonsForDisplay dedupes retries of the same episode before clustering by season`() {
+        val series = listOf(SonarrSeries(id = 1, tvdbId = 1000, tmdbId = 2000, title = "Some Show"))
+        val queue =
+            listOf(
+                // Two retries of the very same episode (same episodeId - what groupDuplicates
+                // actually keys on) - must count as one episode, not two.
+                SonarrQueueItem(
+                    id = 1,
+                    seriesId = 1,
+                    episodeId = 55,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(5),
+                    status = "queued",
+                ),
+                SonarrQueueItem(
+                    id = 2,
+                    seriesId = 1,
+                    episodeId = 55,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(5),
+                    status = "downloading",
+                ),
+            )
+
+        val result = matchSonarr(series, queue, emptyList(), emptyMap()).clusterSeasonsForDisplay()
+
+        // A single distinct episode never clusters with itself.
+        assertEquals(1, result.size)
+        assertEquals("Some Show - S3E5", result.single().title)
+    }
+
+    @Test
+    fun `clusterSeasonsForDisplay leaves a WARNING episode out of its season's cluster`() {
+        val series = listOf(SonarrSeries(id = 1, tvdbId = 1000, tmdbId = 2000, title = "Some Show"))
+        val queue =
+            listOf(
+                SonarrQueueItem(
+                    id = 1,
+                    seriesId = 1,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(5),
+                    status = "downloading",
+                ),
+                SonarrQueueItem(
+                    id = 2,
+                    seriesId = 1,
+                    seasonNumber = 3,
+                    episode = SonarrEpisode(6),
+                    status = "warning",
+                    trackedDownloadStatus = "warning",
+                ),
+            )
+
+        val result = matchSonarr(series, queue, emptyList(), emptyMap()).clusterSeasonsForDisplay()
+
+        assertEquals(2, result.size)
+        assertTrue(result.any { it.status.status == QueueItemStatus.WARNING })
+        assertTrue(result.none { it.title.contains("Season") })
     }
 
     // endregion

@@ -18,7 +18,10 @@ import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.repository.PvrDiskSpaceRepository
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
+import dev.pschmitt.jellyfin.repository.aggregateQueueStatuses
 import dev.pschmitt.jellyfin.repository.groupDuplicates
+import dev.pschmitt.jellyfin.repository.seasonClusterKey
+import dev.pschmitt.jellyfin.repository.seasonClusterTitle
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.utils.AutoDownloadRuleEvaluator
 import dev.pschmitt.jellyfin.utils.Downloader
@@ -117,7 +120,13 @@ constructor(
             queueStatusRepository.getQueueSnapshotFlow().collect { snapshot ->
                 val groups = buildPvrQueueGroups(snapshot.entries)
                 val liveKeys =
-                    groups.flatMap { g -> g.items.map { g.source to it.queueItemId } }.toSet()
+                    groups
+                        .flatMap { g ->
+                            g.items.flatMap {
+                                it.clusteredQueueItemIds.map { id -> g.source to id }
+                            }
+                        }
+                        .toSet()
                 _state.update {
                     it.copy(
                         pvrQueueGroups = groups,
@@ -320,11 +329,16 @@ constructor(
         }
     }
 
-    fun togglePvrQueueSelection(source: PvrSource, queueItemId: Int) {
+    /**
+     * Toggles every id of a queue row's cluster together - a single-element list in the common (non
+     * season-clustered) case, so this is also the plain per-row toggle.
+     */
+    fun togglePvrQueueSelectionCluster(source: PvrSource, queueItemIds: List<Int>) {
         _state.update {
-            val key = source to queueItemId
+            val keys = queueItemIds.map { id -> source to id }.toSet()
             val selected = it.selectedPvrQueueIds
-            val newSelected = if (key in selected) selected - key else selected + key
+            val allSelected = keys.isNotEmpty() && selected.containsAll(keys)
+            val newSelected = if (allSelected) selected - keys else selected + keys
             it.copy(
                 selectedPvrQueueIds = newSelected,
                 selectedIds = if (newSelected.isNotEmpty()) emptySet() else it.selectedIds,
@@ -336,7 +350,11 @@ constructor(
         _state.update { state ->
             val allKeys =
                 state.pvrQueueGroups
-                    .flatMap { group -> group.items.map { group.source to it.queueItemId } }
+                    .flatMap { group ->
+                        group.items.flatMap { item ->
+                            item.clusteredQueueItemIds.map { group.source to it }
+                        }
+                    }
                     .toSet()
             val newSelected = if (selectAll) allKeys else emptySet()
             state.copy(
@@ -463,7 +481,9 @@ constructor(
 
     /**
      * Removes a Sonarr/Radarr queue entry (there is no API-side pause - that lives in the download
-     * client). See [QueueStatusRepository.removeQueueItem] for the flag semantics.
+     * client). See [QueueStatusRepository.removeQueueItem] for the flag semantics. A season-
+     * clustered row (`item.clusteredQueueItemIds.size > 1`) removes every underlying episode via
+     * the bulk endpoint instead, same as [removeSelectedPvrQueueItems].
      */
     fun removePvrQueueItem(
         item: PvrQueueUiItem,
@@ -472,21 +492,33 @@ constructor(
         blocklist: Boolean,
     ) {
         viewModelScope.launch {
-            queueStatusRepository
-                .removeQueueItem(
-                    source = source,
-                    queueItemId = item.queueItemId,
-                    removeFromClient = removeFromClient,
-                    blocklist = blocklist,
+            if (item.clusteredQueueItemIds.size <= 1) {
+                queueStatusRepository
+                    .removeQueueItem(
+                        source = source,
+                        queueItemId = item.queueItemId,
+                        removeFromClient = removeFromClient,
+                        blocklist = blocklist,
+                    )
+                    .fold(
+                        onSuccess = {
+                            eventsChannel.send(DownloadsEvent.PvrQueueItemRemoved(item.title))
+                        },
+                        onFailure = { e ->
+                            eventsChannel.send(DownloadsEvent.PvrQueueItemRemoveFailed(e.message))
+                        },
+                    )
+            } else {
+                val keys = item.clusteredQueueItemIds.map { source to it }
+                val failed =
+                    queueStatusRepository.removeQueueItems(keys, removeFromClient, blocklist)
+                eventsChannel.send(
+                    DownloadsEvent.PvrQueueItemsRemoved(
+                        removed = keys.size - failed.size,
+                        failed = failed.size,
+                    )
                 )
-                .fold(
-                    onSuccess = {
-                        eventsChannel.send(DownloadsEvent.PvrQueueItemRemoved(item.title))
-                    },
-                    onFailure = { e ->
-                        eventsChannel.send(DownloadsEvent.PvrQueueItemRemoveFailed(e.message))
-                    },
-                )
+            }
         }
     }
 
@@ -610,31 +642,65 @@ internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGro
     entries
         .groupBy { it.status.source }
         .map { (source, groupEntries) ->
-            PvrQueueGroup(
-                source = source,
-                items =
-                    groupEntries.groupDuplicates().map { cluster ->
-                        // Duplicates share the same title/poster/ids by construction (that's what
-                        // makes them a cluster) - only status can differ moment to moment, so the
-                        // most recently-seen entry's is the freshest to show.
-                        val entry = cluster.last()
-                        PvrQueueUiItem(
-                            itemId = entry.item?.id,
-                            title = entry.item.toQueueTitle(fallback = entry.title),
-                            subtitle = (entry.item as? JollyfinEpisode)?.name,
-                            item = entry.item,
-                            posterUrl = entry.posterUrl,
-                            tmdbId = entry.tmdbId,
-                            sonarrEpisodeId = entry.sonarrEpisodeId,
-                            seasonNumber = entry.seasonNumber,
-                            episodeNumber = entry.episodeNumber,
-                            status = entry.status,
-                            queueItemId = entry.queueItemId,
-                            duplicates = cluster,
-                        )
-                    },
+            val episodeRows =
+                groupEntries.groupDuplicates().map { cluster ->
+                    // Duplicates share the same title/poster/ids by construction (that's what
+                    // makes them a cluster) - only status can differ moment to moment, so the
+                    // most recently-seen entry's is the freshest to show.
+                    val entry = cluster.last()
+                    PvrQueueUiItem(
+                        itemId = entry.item?.id,
+                        title = entry.item.toQueueTitle(fallback = entry.title),
+                        subtitle = (entry.item as? JollyfinEpisode)?.name,
+                        item = entry.item,
+                        posterUrl = entry.posterUrl,
+                        tmdbId = entry.tmdbId,
+                        sonarrEpisodeId = entry.sonarrEpisodeId,
+                        seasonNumber = entry.seasonNumber,
+                        episodeNumber = entry.episodeNumber,
+                        status = entry.status,
+                        queueItemId = entry.queueItemId,
+                        duplicates = cluster,
+                    )
+                }
+            PvrQueueGroup(source = source, items = episodeRows.clusterSeasons(source))
+        }
+
+/**
+ * Second pass over [buildPvrQueueGroups]'s already-deduped per-episode rows: merges distinct
+ * episodes of the same show+season (per [seasonClusterKey]) into one synthesized row, so a season
+ * grabbed as several separate per-episode downloads reads as one "Show - Season N (X episodes)" row
+ * instead of X. Singleton groups (the common case) pass through unchanged.
+ */
+private fun List<PvrQueueUiItem>.clusterSeasons(source: PvrSource): List<PvrQueueUiItem> {
+    val groups = LinkedHashMap<Any, MutableList<PvrQueueUiItem>>()
+    for (row in this) {
+        val key: Any =
+            seasonClusterKey(
+                source,
+                row.status.status,
+                row.tmdbId,
+                row.seasonNumber,
+                row.episodeNumber,
+            ) ?: row
+        groups.getOrPut(key) { mutableListOf() }.add(row)
+    }
+    return groups.values.map { group ->
+        val rep = group.last()
+        if (group.size == 1) {
+            rep
+        } else {
+            rep.copy(
+                title = rep.seasonNumber?.let { seasonClusterTitle(rep.title, it) } ?: rep.title,
+                subtitle = null,
+                status = aggregateQueueStatuses(group.map { it.status }),
+                duplicates = emptyList(),
+                episodeCount = group.size,
+                clusteredQueueItemIds = group.map { it.queueItemId },
             )
         }
+    }
+}
 
 private fun JollyfinItem?.toQueueTitle(fallback: String): String =
     when (this) {

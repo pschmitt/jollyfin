@@ -152,6 +152,113 @@ fun List<PvrQueueEntry>.groupDuplicates(): List<List<PvrQueueEntry>> {
 }
 
 /**
+ * The key two entries share when they're separate episodes of the same show+season worth clustering
+ * into a single "Show - Season N" display row (e.g. a season grabbed as several per-episode
+ * downloads instead of one season-pack release). Unlike [duplicateGroupKey], this is about
+ * *different* episodes, not retries of the same one - callers must dedupe retries (see
+ * [groupDuplicates]) before applying this. `null` when there's nothing safe to cluster: a
+ * WARNING/FAILED entry (surfaced individually so it stays actionable), a movie (Radarr has no
+ * season concept), or an entry missing the [tmdbId]/[seasonNumber] identity, or already a
+ * season-pack row with no per-episode number (already reads as "Show - Season N" on its own).
+ */
+fun seasonClusterKey(
+    source: PvrSource,
+    status: QueueItemStatus,
+    tmdbId: Int?,
+    seasonNumber: Int?,
+    episodeNumber: Int?,
+): Pair<Int, Int>? {
+    if (source != PvrSource.SONARR) return null
+    if (status == QueueItemStatus.WARNING || status == QueueItemStatus.FAILED) return null
+    if (episodeNumber == null) return null
+    if (tmdbId == null || seasonNumber == null) return null
+    return tmdbId to seasonNumber
+}
+
+/**
+ * Combines a season cluster's individual statuses into one: sizes/remaining/speed sum across the
+ * cluster and [QueueStatus.percent] is recomputed from the totals; [QueueStatus.status] is the most
+ * "in-progress" of the cluster (DOWNLOADING > IMPORTING > QUEUED - WARNING/FAILED entries never
+ * reach a cluster, see [seasonClusterKey]). [statuses] must be non-empty and share the same
+ * [QueueStatus.source].
+ */
+fun aggregateQueueStatuses(statuses: List<QueueStatus>): QueueStatus {
+    val sizeBytes = statuses.sumOf { it.sizeBytes }
+    val remainingBytes = statuses.sumOf { it.remainingBytes }
+    val speedBytesPerSecond = statuses.sumOf { it.speedBytesPerSecond }
+    val percent =
+        if (sizeBytes > 0) {
+            (((sizeBytes - remainingBytes) * 100) / sizeBytes).toInt().coerceIn(0, 100)
+        } else {
+            -1
+        }
+    val etaSeconds =
+        if (speedBytesPerSecond > 0 && remainingBytes > 0) {
+            remainingBytes / speedBytesPerSecond
+        } else {
+            -1L
+        }
+    val status =
+        when {
+            statuses.any { it.status == QueueItemStatus.DOWNLOADING } -> QueueItemStatus.DOWNLOADING
+            statuses.any { it.status == QueueItemStatus.IMPORTING } -> QueueItemStatus.IMPORTING
+            else -> QueueItemStatus.QUEUED
+        }
+    return QueueStatus(
+        source = statuses.first().source,
+        status = status,
+        percent = percent,
+        sizeBytes = sizeBytes,
+        remainingBytes = remainingBytes,
+        speedBytesPerSecond = speedBytesPerSecond,
+        etaSeconds = etaSeconds,
+    )
+}
+
+/**
+ * "Show - S3E5" -> "Show - Season 3" - strips the per-episode suffix off any cluster member's
+ * title.
+ */
+fun seasonClusterTitle(anyEpisodeTitle: String, seasonNumber: Int): String =
+    "${anyEpisodeTitle.substringBeforeLast(" - S")} - Season $seasonNumber"
+
+/**
+ * [groupDuplicates] first (so retries of the same episode never get double-counted as separate
+ * episodes), then merges distinct same-season episodes per [seasonClusterKey] into one synthesized
+ * entry - title/status combine every clustered episode
+ * ([seasonClusterTitle]/[aggregateQueueStatuses]), [PvrQueueEntry.item] is left null since a
+ * cluster no longer points at one specific episode. Singleton results (the common case) pass
+ * through unchanged.
+ */
+fun List<PvrQueueEntry>.clusterSeasonsForDisplay(): List<PvrQueueEntry> {
+    val episodeReps = groupDuplicates().map { it.last() }
+    val groups = LinkedHashMap<Any, MutableList<PvrQueueEntry>>()
+    for (rep in episodeReps) {
+        val key: Any =
+            seasonClusterKey(
+                rep.status.source,
+                rep.status.status,
+                rep.tmdbId,
+                rep.seasonNumber,
+                rep.episodeNumber,
+            ) ?: rep
+        groups.getOrPut(key) { mutableListOf() }.add(rep)
+    }
+    return groups.values.map { group ->
+        val rep = group.last()
+        if (group.size == 1) {
+            rep
+        } else {
+            rep.copy(
+                title = rep.seasonNumber?.let { seasonClusterTitle(rep.title, it) } ?: rep.title,
+                status = aggregateQueueStatuses(group.map { it.status }),
+                item = null,
+            )
+        }
+    }
+}
+
+/**
  * "Series - S1E5" when the episode is identified, "Series - Season 1" for season-pack grabs (no
  * per-episode number), falling back to the release title Sonarr reports for the download.
  */

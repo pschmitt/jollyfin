@@ -96,8 +96,18 @@ data class PvrQueueUiItem(
     // Every entry in this row's duplicate cluster (see PvrQueueEntry.duplicateGroupKey),
     // including the one this row displays - a single-element list in the overwhelmingly common
     // case of no duplicates. Carried here so opening the manage-import sheet can seed every
-    // duplicate's candidates without a second repository round-trip.
+    // duplicate's candidates without a second repository round-trip. Always empty for a
+    // season-clustered row (episodeCount > 1) - manual-import needs one specific episode's
+    // downloadId, which a season cluster doesn't have.
     val duplicates: List<PvrQueueEntry> = emptyList(),
+    // > 1 when this row summarizes several distinct episodes of the same show+season grabbed as
+    // separate downloads (see seasonClusterKey/buildPvrQueueGroups) - title/status already reflect
+    // the whole cluster in that case, not just one episode.
+    val episodeCount: Int = 1,
+    // Every underlying queue row's own id this display row covers - a single-element list
+    // mirroring [queueItemId] in the common (non-clustered) case, all of them for a season
+    // cluster. Bulk remove/select act on every id here instead of just [queueItemId].
+    val clusteredQueueItemIds: List<Int> = listOf(queueItemId),
 )
 
 data class PvrQueueGroup(val source: PvrSource, val items: List<PvrQueueUiItem>)

@@ -581,6 +581,7 @@ fun NavigationRoot(
                             )
                         )
                     },
+                    onDownloadsClick = { navController.safeNavigate(DownloadsRoute) },
                 )
             }
             composable<FavoritesRoute> {

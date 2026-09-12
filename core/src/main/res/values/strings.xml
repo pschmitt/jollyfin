@@ -465,6 +465,7 @@
     <string name="delete_show_downloads_message">This will delete %1$d downloaded episode(s) of %2$s from this device.</string>
     <string name="pvr_queue_section_title">Pending downloads</string>
     <string name="pvr_queue_section_empty">No pending downloads</string>
+    <string name="pvr_queue_season_cluster_count">%d episodes</string>
     <string name="pvr_queue_loading">Checking Sonarr/Radarr…</string>
     <string name="storage_summary_on_device">This Device</string>
     <string name="storage_summary_server">Server storage</string>

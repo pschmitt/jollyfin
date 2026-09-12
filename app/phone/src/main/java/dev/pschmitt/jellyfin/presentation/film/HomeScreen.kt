@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
@@ -87,6 +90,7 @@ fun HomeScreen(
     onManageServers: () -> Unit,
     onItemClick: (item: JollyfinItem) -> Unit,
     onSeerrItemClick: (item: SeerrSearchItem) -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     searchViewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -111,6 +115,7 @@ fun HomeScreen(
                 is HomeAction.OnItemClick -> onItemClick(action.item)
                 is HomeAction.OnSeerrItemClick -> onSeerrItemClick(action.item)
                 is HomeAction.OnLibraryClick -> onLibraryClick(action.library)
+                is HomeAction.OnDownloadsClick -> onDownloadsClick()
                 is HomeAction.OnSettingsClick -> onSettingsClick()
                 is HomeAction.OnManageServers -> onManageServers()
                 is HomeAction.OnEnableOfflineMode -> (context as? Activity)?.recreate()
@@ -297,6 +302,7 @@ private fun HomeScreenLayout(
                                         key == HomeSectionKeys.ACTIVE_DOWNLOADS ->
                                             HomeDownloadProgress(
                                                 entries = state.activeDownloads,
+                                                onAction = onAction,
                                                 modifier = Modifier.padding(itemsPadding),
                                                 titleModifier = titleModifier,
                                                 serviceIcons = state.pvrServiceIcons,
@@ -390,6 +396,7 @@ private fun HomeScreenLayout(
 @Composable
 private fun HomeDownloadProgress(
     entries: List<PvrQueueEntry>,
+    onAction: (HomeAction) -> Unit = {},
     modifier: Modifier = Modifier,
     titleModifier: Modifier = Modifier,
     serviceIcons: List<Int> = emptyList(),
@@ -399,15 +406,30 @@ private fun HomeDownloadProgress(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SectionServiceIcons(serviceIcons)
-            Text(
-                text = stringResource(CoreR.string.pvr_queue_section_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = titleModifier,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SectionServiceIcons(serviceIcons)
+                Text(
+                    text = stringResource(CoreR.string.pvr_queue_section_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = titleModifier,
+                )
+            }
+            // Same "jump to the full list" affordance a library shelf's header gets (see
+            // HomeView.kt) - this section previously had no way to reach the Downloads screen at
+            // all.
+            IconButton(onClick = { onAction(HomeAction.OnDownloadsClick) }) {
+                Icon(
+                    painter = painterResource(CoreR.drawable.ic_arrow_right),
+                    contentDescription = stringResource(CoreR.string.title_download),
+                )
+            }
         }
         if (entries.isEmpty()) {
             Text(

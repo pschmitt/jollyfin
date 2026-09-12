@@ -236,7 +236,7 @@ fun DownloadsScreen(
         onForceGroup = viewModel::forceGroup,
         onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
         onPvrItemClick = onPvrItemClick,
-        onTogglePvrQueueSelection = viewModel::togglePvrQueueSelection,
+        onTogglePvrQueueSelectionCluster = viewModel::togglePvrQueueSelectionCluster,
         onTogglePvrQueueSelectAll = viewModel::togglePvrQueueSelectAll,
         onManageImport = viewModel::openManualImport,
         onRefresh = viewModel::refresh,
@@ -383,7 +383,7 @@ private fun DownloadsScreenLayout(
     onForceGroup: (List<UUID>) -> Unit = {},
     onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
     onPvrItemClick: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
-    onTogglePvrQueueSelection: (PvrSource, Int) -> Unit = { _, _ -> },
+    onTogglePvrQueueSelectionCluster: (PvrSource, List<Int>) -> Unit = { _, _ -> },
     onTogglePvrQueueSelectAll: (Boolean) -> Unit = {},
     onManageImport: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
     onRefresh: () -> Unit = {},
@@ -413,7 +413,11 @@ private fun DownloadsScreenLayout(
     val selectionMode = state.selectedIds.isNotEmpty()
     val pvrQueueKeys =
         remember(state.pvrQueueGroups) {
-            state.pvrQueueGroups.flatMap { g -> g.items.map { g.source to it.queueItemId } }.toSet()
+            state.pvrQueueGroups
+                .flatMap { g ->
+                    g.items.flatMap { item -> item.clusteredQueueItemIds.map { g.source to it } }
+                }
+                .toSet()
         }
     val pvrAllSelected =
         pvrQueueKeys.isNotEmpty() && state.selectedPvrQueueIds.containsAll(pvrQueueKeys)
@@ -623,11 +627,14 @@ private fun DownloadsScreenLayout(
                             }
                             state.pvrQueueGroups.forEach { group ->
                                 items(items = group.items) { queueItem ->
-                                    val key = group.source to queueItem.queueItemId
+                                    val checked =
+                                        queueItem.clusteredQueueItemIds.all {
+                                            (group.source to it) in state.selectedPvrQueueIds
+                                        }
                                     PvrQueueRow(
                                         queueItem = queueItem,
                                         selectionMode = pvrSelectionMode,
-                                        checked = key in state.selectedPvrQueueIds,
+                                        checked = checked,
                                         onClick =
                                             if (
                                                 queueItem.item != null || queueItem.tmdbId != null
@@ -640,15 +647,15 @@ private fun DownloadsScreenLayout(
                                                 null
                                             },
                                         onLongClick = {
-                                            onTogglePvrQueueSelection(
+                                            onTogglePvrQueueSelectionCluster(
                                                 group.source,
-                                                queueItem.queueItemId,
+                                                queueItem.clusteredQueueItemIds,
                                             )
                                         },
                                         onToggleSelection = {
-                                            onTogglePvrQueueSelection(
+                                            onTogglePvrQueueSelectionCluster(
                                                 group.source,
-                                                queueItem.queueItemId,
+                                                queueItem.clusteredQueueItemIds,
                                             )
                                         },
                                         onRemove = { onPvrRemoveRequest(queueItem, group.source) },
@@ -1812,11 +1819,25 @@ private fun PvrQueueRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Episode rows always get a subtitle line - "TBA" (matching Sonarr's own placeholder
-            // for an episode whose title isn't known yet, e.g. unaired or metadata not synced)
-            // when we don't have a real one. Movies have no separate subtitle concept at all
-            // (their title already is the title), so Radarr rows show nothing here.
-            if (queueItem.status.source == PvrSource.SONARR) {
+            // A season-clustered row (several episodes grabbed as separate downloads) shows an
+            // episode count instead of one episode's own subtitle/"TBA" line. Otherwise, episode
+            // rows always get a subtitle line - "TBA" (matching Sonarr's own placeholder for an
+            // episode whose title isn't known yet, e.g. unaired or metadata not synced) when we
+            // don't have a real one. Movies have no separate subtitle concept at all (their title
+            // already is the title), so Radarr rows show nothing here.
+            if (queueItem.episodeCount > 1) {
+                Text(
+                    text =
+                        stringResource(
+                            CoreR.string.pvr_queue_season_cluster_count,
+                            queueItem.episodeCount,
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else if (queueItem.status.source == PvrSource.SONARR) {
                 Text(
                     text = queueItem.subtitle ?: stringResource(CoreR.string.episode_title_tba),
                     style = MaterialTheme.typography.bodySmall,

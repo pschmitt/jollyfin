@@ -19,6 +19,7 @@ import dev.pschmitt.jellyfin.pvr.PvrConfiguration
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
 import dev.pschmitt.jellyfin.repository.SeerrRepository
+import dev.pschmitt.jellyfin.repository.clusterSeasonsForDisplay
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.utils.Downloader
 import dev.pschmitt.jellyfin.utils.HomeSectionKeys
@@ -75,7 +76,9 @@ constructor(
                 _state.value =
                     _state.value.copy(
                         activeDownloads =
-                            snapshot.entries.filter { it.status.status in ACTIVE_QUEUE_STATUSES }
+                            snapshot.entries
+                                .filter { it.status.status in ACTIVE_QUEUE_STATUSES }
+                                .clusterSeasonsForDisplay()
                     )
             }
         }
