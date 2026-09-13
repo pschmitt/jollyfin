@@ -20,7 +20,7 @@ services:
     command: ["sh", "-c", "cp -a /fixture/. /config/"]
 
   jellyfin:
-    image: docker.io/jellyfin/jellyfin:10.11.11
+    image: docker.io/jellyfin/jellyfin:12.0.20260908-012347
     depends_on:
       config-seed:
         condition: service_completed_successfully
