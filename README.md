@@ -8,6 +8,8 @@ TV client for Jellyfin — with added features such as Sonarr/Radarr integration
 
 **This project is in its early stages so expect bugs.**
 
+**Requires a Jellyfin server running version 12.0 or newer** (as of JollyFin 2.15.0).
+
 ## Installation
 
 Install and auto-update JollyFin via [Obtainium](https://obtainium.imranr.dev/)
@@ -42,7 +44,7 @@ Managing apps declaratively with [declaroid](https://github.com/pschmitt/declaro
   DTS/TrueHD/AC-3, styled SSA/ASS subtitles, and more) and optional software decoding fallback
 - Picture-in-picture mode
 - Media chapters with timeline markers and chapter navigation gestures
-- Trickplay (Jellyfin 10.9+) and media segment skip/auto-skip (Jellyfin 10.10+)
+- Trickplay and media segment skip/auto-skip
 - Sonarr/Radarr integration: upcoming-release calendar and download queue status
 - Jellyseerr/Overseerr integration: discover and request media that isn't in your library yet,
   right from search
