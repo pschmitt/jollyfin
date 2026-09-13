@@ -1,0 +1,4 @@
+Changed:
+- Now requires a Jellyfin server running version 12.0 or newer.
+- Several episodes of the same season downloading at once now show as a single "Pending downloads" entry instead of one per episode.
+- The "Pending downloads" section on Home now links to the full Downloads screen.
