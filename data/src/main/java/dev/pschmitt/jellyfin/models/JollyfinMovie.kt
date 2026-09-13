@@ -69,7 +69,13 @@ suspend fun BaseItemDto.toJollyfinMovie(
         images = toJollyfinImages(jellyfinRepository),
         chapters = toJollyfinChapters(),
         trickplayInfo =
-            trickplay?.mapValues { it.value[it.value.keys.max()]!!.toJollyfinTrickplayInfo() },
+            trickplay
+                ?.mapNotNull { (key, resolutions) ->
+                    resolutions?.get(resolutions.keys.max())?.toJollyfinTrickplayInfo()?.let {
+                        key to it
+                    }
+                }
+                ?.toMap(),
         tmdbId =
             providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value,
         dateCreated = dateCreated,

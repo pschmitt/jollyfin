@@ -304,7 +304,7 @@ constructor(
             val oneOff = JellyfinApi(context)
             oneOff.api.update(baseUrl = address.address)
             val authenticationResult by
-                oneOff.userApi.authenticateUserByName(
+                oneOff.authenticationApi.authenticateUserByName(
                     data =
                         AuthenticateUserByName(
                             username = state.jellyfinUsername,

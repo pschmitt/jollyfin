@@ -76,7 +76,13 @@ suspend fun BaseItemDto.toJollyfinEpisode(
             images = toJollyfinImages(jellyfinRepository),
             chapters = toJollyfinChapters(),
             trickplayInfo =
-                trickplay?.mapValues { it.value[it.value.keys.max()]!!.toJollyfinTrickplayInfo() },
+                trickplay
+                    ?.mapNotNull { (key, resolutions) ->
+                        resolutions?.get(resolutions.keys.max())?.toJollyfinTrickplayInfo()?.let {
+                            key to it
+                        }
+                    }
+                    ?.toMap(),
             dateCreated = dateCreated,
         )
     } catch (_: NullPointerException) {
