@@ -9,6 +9,11 @@ plugins {
     alias(libs.plugins.aboutlibraries.android)
 }
 
+val configuredVersionCode =
+    providers.gradleProperty("versionCode").orNull?.toIntOrNull() ?: Versions.APP_CODE
+val configuredVersionName =
+    providers.gradleProperty("versionName").orNull ?: Versions.APP_NAME
+
 android {
     namespace = "dev.pschmitt.jellyfin"
     compileSdk = Versions.COMPILE_SDK
@@ -19,8 +24,8 @@ android {
         minSdk = Versions.MIN_SDK
         targetSdk = Versions.TARGET_SDK
 
-        versionCode = Versions.APP_CODE
-        versionName = Versions.APP_NAME
+        versionCode = configuredVersionCode
+        versionName = configuredVersionName
 
         val gitRevision = System.getenv("GIT_REVISION") ?: "unknown"
         buildConfigField("String", "GIT_REVISION", "\"$gitRevision\"")
