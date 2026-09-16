@@ -21,6 +21,14 @@ on:
       - v*
   workflow_dispatch:
     inputs:
+      version_code:
+        description: "Override versionCode for a manual release"
+        required: false
+        type: string
+      version_name:
+        description: "Override versionName for a manual release"
+        required: false
+        type: string
       publish:
         description: "Upload the bundle to the Play internal + closed (alpha) testing tracks"
         required: true
@@ -43,6 +51,8 @@ jobs:
     with:
       application-id: dev.pschmitt.jollyfin
       artifact-label: jollyfin
+      version-code: ${{ github.event_name == 'workflow_dispatch' && inputs.version_code || '' }}
+      version-name: ${{ github.event_name == 'workflow_dispatch' && inputs.version_name || '' }}
       gradle-bundle-task: ':app:phone:bundleRelease'
       # AGP names the output directory after the "libre" flavor (e.g.
       # app/phone/build/outputs/bundle/libreRelease/phone-libre-release.aab) - glob instead of a
