@@ -11,8 +11,7 @@ plugins {
 
 val configuredVersionCode =
     providers.gradleProperty("versionCode").orNull?.toIntOrNull() ?: Versions.APP_CODE
-val configuredVersionName =
-    providers.gradleProperty("versionName").orNull ?: Versions.APP_NAME
+val configuredVersionName = providers.gradleProperty("versionName").orNull ?: Versions.APP_NAME
 
 android {
     namespace = "dev.pschmitt.jellyfin"
