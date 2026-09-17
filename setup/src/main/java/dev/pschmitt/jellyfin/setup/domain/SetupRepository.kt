@@ -13,6 +13,9 @@ interface SetupRepository {
 
     suspend fun getServers(): List<ServerWithAddresses>
 
+    /** Returns the cached public Jellyfin version, fetching it once if no cached value exists. */
+    suspend fun getServerVersion(serverId: String): String?
+
     suspend fun getCurrentServer(): Server?
 
     suspend fun deleteServer(serverId: String)

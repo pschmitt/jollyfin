@@ -7,7 +7,11 @@ import dev.pschmitt.jellyfin.setup.domain.ProfileRepository
 import dev.pschmitt.jellyfin.setup.domain.SetupRepository
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -30,19 +34,20 @@ constructor(
         viewModelScope.launch {
             val profiles = repository.getProfiles()
             val currentProfileId = repository.getCurrentProfile()?.profile?.id
-            val serverBaseUrls =
+            val servers =
                 try {
-                    setupRepository.getServers().associate { serverWithAddresses ->
-                        val server = serverWithAddresses.server
-                        val address =
-                            serverWithAddresses.addresses
-                                .firstOrNull { it.id == server.currentServerAddressId }
-                                ?.address ?: serverWithAddresses.addresses.firstOrNull()?.address
-                        server.id to address.orEmpty()
-                    }
+                    setupRepository.getServers()
                 } catch (_: Exception) {
-                    emptyMap()
+                    emptyList()
                 }
+            val serverBaseUrls = servers.associate { serverWithAddresses ->
+                val server = serverWithAddresses.server
+                val address =
+                    serverWithAddresses.addresses
+                        .firstOrNull { it.id == server.currentServerAddressId }
+                        ?.address ?: serverWithAddresses.addresses.firstOrNull()?.address
+                server.id to address.orEmpty()
+            }
             _state.emit(
                 ProfilesState(
                     profiles = profiles,
@@ -50,6 +55,24 @@ constructor(
                     serverBaseUrls = serverBaseUrls,
                 )
             )
+
+            // Fetch versions after publishing the profile list so an unreachable server cannot
+            // hold the switcher open until its network timeout expires.
+            val serverVersions = coroutineScope {
+                servers
+                    .map { serverWithAddresses ->
+                        async(Dispatchers.IO) {
+                            val serverId = serverWithAddresses.server.id
+                            serverId to
+                                runCatching { setupRepository.getServerVersion(serverId) }
+                                    .getOrNull()
+                                    .orEmpty()
+                        }
+                    }
+                    .awaitAll()
+                    .toMap()
+            }
+            _state.emit(_state.value.copy(serverVersions = serverVersions))
         }
     }
 

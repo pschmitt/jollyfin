@@ -158,6 +158,20 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     // Offline mode
     val offlineMode = Preference("pref_offline_mode", false)
 
+    // Per-server Jellyfin version cache. Profile pickers show the last known value without making a
+    // request every time they open; server discovery refreshes it when it already contacts a
+    // server.
+    fun getCachedServerVersion(serverId: String): String? =
+        sharedPreferences.getString("pref_server_version_$serverId", null)
+
+    fun cacheServerVersion(serverId: String, version: String) {
+        sharedPreferences.edit().putString("pref_server_version_$serverId", version).apply()
+    }
+
+    fun clearCachedServerVersion(serverId: String) {
+        sharedPreferences.edit().remove("pref_server_version_$serverId").apply()
+    }
+
     // PVR (Sonarr/Radarr) - the API keys are secrets and are stored separately, through
     // SecureCredentialStore, not here.
     val sonarrEnabled = Preference("pref_pvr_sonarr_enabled", false)

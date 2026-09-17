@@ -87,6 +87,7 @@ fun ProfilesListScreen(
         profiles = state.profiles,
         currentProfileId = state.currentProfileId,
         serverBaseUrls = state.serverBaseUrls,
+        serverVersions = state.serverVersions,
         navigateBack = navigateBack,
         navigateToProfileDetail = navigateToProfileDetail,
         onProfileCreated = { viewModel.loadProfiles() },
@@ -99,6 +100,7 @@ private fun ProfilesListScreenLayout(
     profiles: List<ProfileWithUserAndServer>,
     currentProfileId: UUID?,
     serverBaseUrls: Map<String, String> = emptyMap(),
+    serverVersions: Map<String, String> = emptyMap(),
     navigateBack: () -> Unit,
     navigateToProfileDetail: (profileId: String) -> Unit,
     onProfileCreated: () -> Unit,
@@ -162,6 +164,7 @@ private fun ProfilesListScreenLayout(
                             Modifier.fillMaxWidth()
                                 .padding(horizontal = MaterialTheme.spacings.medium),
                         baseUrl = serverBaseUrls[profile.serverId].orEmpty(),
+                        serverVersion = serverVersions[profile.serverId],
                     )
                 }
                 // Trailing space so the last card isn't obscured by the FAB.

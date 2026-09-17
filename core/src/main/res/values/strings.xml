@@ -178,6 +178,7 @@
     <string name="profile_manage">Manage</string>
     <string name="profile_tv_switch_hint">Select a profile to switch to it. Use Manage to rename, configure, or delete a profile.</string>
     <string name="profile_server_section_title">Server</string>
+    <string name="profile_server_version">Jellyfin %1$s</string>
     <string name="profile_add_address">Add address</string>
     <string name="profile_add_address_error_empty">Enter a server address</string>
     <string name="profile_user_section_title">Jellyfin user</string>

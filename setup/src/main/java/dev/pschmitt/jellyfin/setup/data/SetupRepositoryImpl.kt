@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.setup.data
 
+import android.content.Context
 import dev.pschmitt.jellyfin.api.JellyfinApi
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.database.ServerDatabaseDao
@@ -28,6 +29,7 @@ import org.jellyfin.sdk.model.api.ServerDiscoveryInfo
 import timber.log.Timber
 
 class SetupRepositoryImpl(
+    private val applicationContext: Context,
     private val jellyfinApi: JellyfinApi,
     private val database: ServerDatabaseDao,
     private val appPreferences: AppPreferences,
@@ -40,12 +42,47 @@ class SetupRepositoryImpl(
         return database.getServersWithAddresses()
     }
 
+    override suspend fun getServerVersion(serverId: String): String? {
+        val cachedVersion = appPreferences.getCachedServerVersion(serverId)
+        if (cachedVersion != null || appPreferences.getValue(appPreferences.offlineMode)) {
+            return cachedVersion
+        }
+
+        val fetchedVersion = fetchServerVersion(serverId)
+        if (!fetchedVersion.isNullOrBlank()) {
+            appPreferences.cacheServerVersion(serverId, fetchedVersion)
+            return fetchedVersion
+        }
+        return cachedVersion
+    }
+
+    private suspend fun fetchServerVersion(serverId: String): String? =
+        withContext(Dispatchers.IO) {
+            val server = database.getServerWithAddresses(serverId)
+            val currentAddressId = server.server.currentServerAddressId
+            val addresses = buildList {
+                server.addresses.firstOrNull { it.id == currentAddressId }?.let(::add)
+                addAll(server.addresses.filter { it.id != currentAddressId })
+            }
+
+            addresses.firstNotNullOfOrNull { address ->
+                runCatching {
+                    val api = JellyfinApi(applicationContext)
+                    api.api.update(baseUrl = address.address)
+                    val systemInfo by api.systemApi.getPublicSystemInfo()
+                    systemInfo.version?.takeIf { it.isNotBlank() }
+                }
+                    .getOrNull()
+            }
+        }
+
     override suspend fun getCurrentServer(): Server? {
         return appPreferences.getValue(appPreferences.currentServer)?.let { id -> database.get(id) }
     }
 
     override suspend fun deleteServer(serverId: String) {
         database.delete(serverId)
+        appPreferences.clearCachedServerVersion(serverId)
     }
 
     override suspend fun getIsQuickConnectEnabled(): Boolean =
@@ -124,6 +161,10 @@ class SetupRepositoryImpl(
                 )
 
         Timber.d("Connecting to server: ${serverInfo.serverName}")
+
+        serverInfo.version
+            ?.takeIf { it.isNotBlank() }
+            ?.let { appPreferences.cacheServerVersion(serverInfo.id!!, it) }
 
         val serverInDatabase = database.get(serverInfo.id!!)
 

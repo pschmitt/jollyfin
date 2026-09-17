@@ -10,6 +10,8 @@ data class ProfilesState(
     // avatar image URL (/users/{id}/Images/Primary). Resolved separately from [profiles] itself
     // since ProfileWithUserAndServer doesn't carry an address.
     val serverBaseUrls: Map<String, String> = emptyMap(),
+    // serverId -> the last known Jellyfin server version.
+    val serverVersions: Map<String, String> = emptyMap(),
 ) {
     val currentProfile: ProfileWithUserAndServer?
         get() = profiles.firstOrNull { it.profile.id == currentProfileId }

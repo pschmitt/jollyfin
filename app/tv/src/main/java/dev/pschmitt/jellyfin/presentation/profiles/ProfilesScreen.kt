@@ -143,6 +143,7 @@ private fun ProfilesScreenLayout(
                                 onClick = {
                                     onAction(ProfilesAction.OnProfileClick(profile.profile.id))
                                 },
+                                serverVersion = state.serverVersions[profile.serverId],
                             )
                             ManageProfileButton(
                                 onClick = { navigateToProfileDetail(profile.profile.id.toString()) }

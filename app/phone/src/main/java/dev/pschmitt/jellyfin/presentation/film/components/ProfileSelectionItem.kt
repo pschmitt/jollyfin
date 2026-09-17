@@ -49,6 +49,7 @@ fun ProfileSelectionItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     baseUrl: String = "",
+    serverVersion: String? = null,
 ) {
     Card(
         onClick = onClick,
@@ -130,6 +131,15 @@ fun ProfileSelectionItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (!serverVersion.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(CoreR.string.profile_server_version, serverVersion),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (selected) {
                 Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))

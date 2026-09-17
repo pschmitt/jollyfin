@@ -49,6 +49,7 @@ fun ProfileItem(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    serverVersion: String? = null,
 ) {
     Surface(
         onClick = onClick,
@@ -123,6 +124,15 @@ fun ProfileItem(
                                     .padding(horizontal = 4.dp),
                         )
                     }
+                }
+                if (!serverVersion.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(CoreR.string.profile_server_version, serverVersion),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFBDBDBD),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
             if (selected) {
