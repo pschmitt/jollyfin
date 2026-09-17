@@ -8,7 +8,7 @@ TV client for Jellyfin — with added features such as Sonarr/Radarr integration
 
 **This project is in its early stages so expect bugs.**
 
-**Requires a Jellyfin server running version 12.0 or newer** (as of JollyFin 2.15.0).
+**Requires a Jellyfin server running version 12.0 or newer** (as of JollyFin 2.15.1).
 
 ## Installation
 

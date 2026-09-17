@@ -2270,3 +2270,21 @@ here (and confirm the reusable workflow's publish-gate/production semantics stil
 Status: **done**, 2026-08-28 - CI-only change, no app code or version change; not exercised with a
 real tag push in this task (would have meant cutting an otherwise-empty version bump just to test
 CI wiring) - confirm both tracks receive the bundle on the next real tagged release.
+
+## JF-90: Show Jellyfin server versions on profile switchers
+
+- [x] Fetch each configured server's current public Jellyfin version without changing the active
+      profile connection, using a persistent last-known cache and the discovery result when available.
+- [x] Display the version in Settings > Profiles and the home-header quick-switcher (and the TV
+      profile picker, which shares the same profile state).
+- [x] Verify formatting, compilation, unit tests, and remote lint.
+
+Status: done, 2026-09-16 - profile pickers display a persistent last-known server version; offline
+mode uses the cache without attempting a request. Remote ktfmt, compilation, and unit tests pass.
+
+## JF-91: Bump patch release to 2.15.1
+
+- [x] Bump `Versions.kt` from 2.15.0 (69) to 2.15.1 (70).
+- [x] Update the README's current-version note.
+
+Status: done, 2026-09-16.
