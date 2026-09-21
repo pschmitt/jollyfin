@@ -25,9 +25,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -36,8 +39,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.pschmitt.jellyfin.api.pvr.PvrAdvancedConfig
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
@@ -269,6 +274,21 @@ fun PvrServiceSection(
     }
 }
 
+/** One editable name/value row in the custom-headers list, keyed by [id] for stable UI state. */
+private data class HeaderEntry(val id: Long, val key: String, val value: String)
+
+private val HeaderEntryListSaver =
+    listSaver<SnapshotStateList<HeaderEntry>, Any>(
+        save = { list -> list.flatMap { listOf(it.id, it.key, it.value) } },
+        restore = { saved ->
+            mutableStateListOf<HeaderEntry>().apply {
+                saved.chunked(3).forEach { (id, key, value) ->
+                    add(HeaderEntry(id as Long, key as String, value as String))
+                }
+            }
+        },
+    )
+
 @Composable
 fun PvrAdvancedHttpFields(
     headers: String,
@@ -278,6 +298,23 @@ fun PvrAdvancedHttpFields(
     enabled: Boolean = true,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var nextEntryId by rememberSaveable { mutableStateOf(0L) }
+    // Local source of truth while editing - re-derived from `headers` only once, so an in-progress
+    // row with a still-empty name (which `parseHeaders` would drop) isn't lost on recomposition.
+    val entries =
+        rememberSaveable(saver = HeaderEntryListSaver) {
+            mutableStateListOf<HeaderEntry>().apply {
+                PvrAdvancedConfig.parseHeaders(headers).forEach { (name, value) ->
+                    add(HeaderEntry(nextEntryId++, name, value))
+                }
+            }
+        }
+
+    fun emitHeaders() {
+        val serialized =
+            entries.filter { it.key.isNotBlank() }.joinToString("\n") { "${it.key}: ${it.value}" }
+        onChanged(serialized, basicAuthUsername, basicAuthPassword)
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
         Row(
@@ -300,17 +337,37 @@ fun PvrAdvancedHttpFields(
             )
         }
         if (expanded) {
-            OutlinedTextField(
-                value = headers,
-                onValueChange = { onChanged(it, basicAuthUsername, basicAuthPassword) },
-                label = { Text(stringResource(CoreR.string.integrations_custom_headers)) },
-                placeholder = {
-                    Text(stringResource(CoreR.string.integrations_custom_headers_hint))
-                },
-                minLines = 2,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
+            Text(
+                text = stringResource(CoreR.string.integrations_custom_headers),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            entries.forEachIndexed { index, entry ->
+                PvrHeaderRow(
+                    entry = entry,
+                    enabled = enabled,
+                    onKeyChanged = { newKey ->
+                        entries[index] = entry.copy(key = newKey)
+                        emitHeaders()
+                    },
+                    onValueChanged = { newValue ->
+                        entries[index] = entry.copy(value = newValue)
+                        emitHeaders()
+                    },
+                    onRemove = {
+                        entries.removeAt(index)
+                        emitHeaders()
+                    },
+                )
+            }
+            TextButton(
+                onClick = { entries.add(HeaderEntry(nextEntryId++, "", "")) },
+                enabled = enabled,
+            ) {
+                Icon(painter = painterResource(CoreR.drawable.ic_plus), contentDescription = null)
+                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
+                Text(stringResource(CoreR.string.integrations_custom_headers_add))
+            }
             OutlinedTextField(
                 value = basicAuthUsername,
                 onValueChange = { onChanged(headers, it, basicAuthPassword) },
@@ -328,6 +385,60 @@ fun PvrAdvancedHttpFields(
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** A single custom-header name/value row, with the value masked like a password by default. */
+@Composable
+private fun PvrHeaderRow(
+    entry: HeaderEntry,
+    enabled: Boolean,
+    onKeyChanged: (String) -> Unit,
+    onValueChanged: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var valueVisible by rememberSaveable(entry.id) { mutableStateOf(false) }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small),
+        verticalAlignment = Alignment.Top,
+    ) {
+        OutlinedTextField(
+            value = entry.key,
+            onValueChange = onKeyChanged,
+            label = { Text(stringResource(CoreR.string.integrations_custom_header_name)) },
+            singleLine = true,
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+        )
+        OutlinedTextField(
+            value = entry.value,
+            onValueChange = onValueChanged,
+            label = { Text(stringResource(CoreR.string.integrations_custom_header_value)) },
+            singleLine = true,
+            enabled = enabled,
+            visualTransformation =
+                if (valueVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { valueVisible = !valueVisible }) {
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (valueVisible) CoreR.drawable.ic_eye_off
+                                else CoreR.drawable.ic_eye
+                            ),
+                        contentDescription = null,
+                    )
+                }
+            },
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onRemove, enabled = enabled) {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = stringResource(CoreR.string.remove),
+                tint = MaterialTheme.colorScheme.error,
             )
         }
     }

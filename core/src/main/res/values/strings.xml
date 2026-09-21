@@ -323,7 +323,9 @@
     <string name="integrations_test_connection_error">Connection failed: %1$s</string>
     <string name="integrations_advanced_http">Advanced HTTP</string>
     <string name="integrations_custom_headers">Custom headers</string>
-    <string name="integrations_custom_headers_hint">One per line: Header-Name: value</string>
+    <string name="integrations_custom_header_name">Header name</string>
+    <string name="integrations_custom_header_value">Value</string>
+    <string name="integrations_custom_headers_add">Add header</string>
     <string name="integrations_basic_auth_username">Basic auth username</string>
     <string name="integrations_basic_auth_password">Basic auth password</string>
     <string name="integrations_poll_interval">Poll interval</string>
