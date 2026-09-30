@@ -72,6 +72,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.ManualImportSheet
 import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.ReleasePickerSheet
+import dev.pschmitt.jellyfin.presentation.film.components.ShareDownloadMenuItem
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
@@ -455,6 +456,22 @@ private fun EpisodeScreenLayout(
                                         },
                                     )
                                 }
+                                downloadedSource
+                                    ?.path
+                                    ?.takeUnless { it.endsWith(".download") }
+                                    ?.let { path ->
+                                        ShareDownloadMenuItem(
+                                            path = path,
+                                            title =
+                                                "${episode.seriesName} - " +
+                                                    "S%02dE%02d - ${episode.name}"
+                                                        .format(
+                                                            episode.parentIndexNumber,
+                                                            episode.indexNumber,
+                                                        ),
+                                            closeMenu = closeMenu,
+                                        )
+                                    }
                                 if (state.canDelete) {
                                     HorizontalDivider()
                                     DropdownMenuItem(
