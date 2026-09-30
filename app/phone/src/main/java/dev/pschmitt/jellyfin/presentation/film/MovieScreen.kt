@@ -69,6 +69,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.QueueBadge
 import dev.pschmitt.jellyfin.presentation.film.components.ReleasePickerSheet
+import dev.pschmitt.jellyfin.presentation.film.components.ShareDownloadMenuItem
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
@@ -279,6 +280,12 @@ private fun MovieScreenLayout(
                     )
                     Column(modifier = Modifier.padding(start = paddingStart, end = paddingEnd)) {
                         Spacer(Modifier.height(MaterialTheme.spacings.small))
+                        val downloadedSource =
+                            if (movie.isDownloaded()) {
+                                movie.sources.firstOrNull { it.type == JollyfinSourceType.LOCAL }
+                            } else {
+                                null
+                            }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                             Text(
                                 text = movie.name,
@@ -390,6 +397,21 @@ private fun MovieScreenLayout(
                                         },
                                     )
                                 }
+                                downloadedSource
+                                    ?.path
+                                    ?.takeUnless { it.endsWith(".download") }
+                                    ?.let { path ->
+                                        ShareDownloadMenuItem(
+                                            path = path,
+                                            title =
+                                                listOfNotNull(
+                                                        movie.name,
+                                                        movie.productionYear?.let { "($it)" },
+                                                    )
+                                                    .joinToString(" "),
+                                            closeMenu = closeMenu,
+                                        )
+                                    }
                                 if (state.canDelete) {
                                     HorizontalDivider()
                                     DropdownMenuItem(
@@ -449,12 +471,6 @@ private fun MovieScreenLayout(
                                 )
                                 .show()
                         }
-                        val downloadedSource =
-                            if (movie.isDownloaded()) {
-                                movie.sources.firstOrNull { it.type == JollyfinSourceType.LOCAL }
-                            } else {
-                                null
-                            }
                         ItemButtonsBar(
                             item = movie,
                             downloaderState = downloaderState,
