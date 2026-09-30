@@ -110,6 +110,16 @@
             android:exported="false" />
 
         <provider
+            android:name=".DownloadShareProvider"
+            android:authorities="${applicationId}.downloadshare"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/download_share_paths" />
+        </provider>
+
+        <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             tools:node="remove" />

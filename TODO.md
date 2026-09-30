@@ -2288,3 +2288,15 @@ mode uses the cache without attempting a request. Remote ktfmt, compilation, and
 - [x] Update the README's current-version note.
 
 Status: done, 2026-09-16.
+
+## JF-92: Share downloaded episodes/movies from the overflow menu
+
+- [x] Add a "Share" entry to the Movie/Episode overflow menu when the item has a completed local
+      download, handing the file to the system share sheet via a `FileProvider`
+      (`DownloadShareProvider`) that reports a readable display name + sniffed container
+      extension/MIME type instead of the on-disk `<itemId>.<sourceId>` name.
+- [ ] Verify sharing on a real device (primary storage and SD card downloads).
+
+No CLI counterpart: sharing is an interactive share-sheet action with no sensible CLI shape.
+
+Status: implementation complete; device verification pending (2026-10-01).

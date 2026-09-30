@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Downloads live under getExternalFilesDirs(null)[i]/downloads/. The primary volume is
+         covered by external-files-path; secondary volumes (SD cards) have no dedicated tag, hence
+         root-path. Nothing is exposed by these entries alone - only URIs explicitly granted via
+         a share intent are readable by other apps. -->
+    <external-files-path name="downloads" path="downloads/" />
+    <root-path name="volumes" path="." />
+</paths>
