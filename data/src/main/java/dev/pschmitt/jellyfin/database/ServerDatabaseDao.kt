@@ -152,6 +152,8 @@ interface ServerDatabaseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertMediaStream(mediaStream: JollyfinMediaStreamDto)
 
+    @Query("SELECT * FROM mediastreams") fun getAllMediaStreams(): List<JollyfinMediaStreamDto>
+
     @Query("SELECT * FROM mediastreams WHERE sourceId = :sourceId")
     fun getMediaStreamsBySourceId(sourceId: String): List<JollyfinMediaStreamDto>
 

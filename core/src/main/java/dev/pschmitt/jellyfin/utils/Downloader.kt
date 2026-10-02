@@ -26,6 +26,12 @@ interface Downloader {
 
     suspend fun resumeDownload(downloadId: Long): UiText?
 
+    // One-time migration (idempotent, safe to run on every start) of downloads stored under the
+    // old opaque `<itemId>.<sourceId>` names to readable ones - see DownloadFileNaming. Downloads
+    // still in progress are skipped and picked up by a later run. Returns the number of files
+    // renamed.
+    suspend fun renameLegacyDownloads(): Int
+
     // Cancels every download that's currently ENQUEUED/RUNNING (same mechanism as
     // pauseDownload), and flags each one as paused-by-battery-saver so
     // resumeBatterySaverPausedDownloads() resumes exactly those and not ones the user paused

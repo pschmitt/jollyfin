@@ -13,6 +13,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import dev.pschmitt.jellyfin.DownloadShareProvider
 import dev.pschmitt.jellyfin.core.R as CoreR
+import dev.pschmitt.jellyfin.utils.VideoContainer
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,8 +22,8 @@ import timber.log.Timber
 
 /**
  * Overflow-menu entry that hands a downloaded file at [path] to the system share sheet, named
- * [title] (plus a container extension sniffed from the file header, since downloads are stored
- * without one).
+ * [title] plus the file's container extension (taken from the file name, or sniffed from the file
+ * header for downloads whose extension isn't known).
  */
 @Composable
 fun ShareDownloadMenuItem(path: String, title: String, closeMenu: () -> Unit) {
@@ -41,7 +42,9 @@ fun ShareDownloadMenuItem(path: String, title: String, closeMenu: () -> Unit) {
 }
 
 private suspend fun shareDownload(context: Context, file: File, title: String) {
-    val container = withContext(Dispatchers.IO) { sniffContainer(file) }
+    val container =
+        VideoContainer.fromExtension(file.extension)
+            ?: withContext(Dispatchers.IO) { VideoContainer.sniff(file) }
     val displayName =
         title.replace(Regex("""[\\/:*?"<>|]"""), "_").trim() +
             container?.let { ".${it.extension}" }.orEmpty()
@@ -62,34 +65,4 @@ private suspend fun shareDownload(context: Context, file: File, title: String) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     context.startActivity(Intent.createChooser(sendIntent, null))
-}
-
-private enum class Container(val extension: String, val mimeType: String) {
-    MKV("mkv", "video/x-matroska"),
-    MP4("mp4", "video/mp4"),
-    AVI("avi", "video/x-msvideo"),
-    TS("ts", "video/mp2t"),
-}
-
-private fun sniffContainer(file: File): Container? {
-    val header = ByteArray(12)
-    val read =
-        try {
-            file.inputStream().use { it.read(header) }
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to read download header: %s", file)
-            return null
-        }
-    if (read < header.size) return null
-    fun ascii(from: Int, to: Int) = String(header, from, to - from, Charsets.US_ASCII)
-    return when {
-        header[0] == 0x1A.toByte() &&
-            header[1] == 0x45.toByte() &&
-            header[2] == 0xDF.toByte() &&
-            header[3] == 0xA3.toByte() -> Container.MKV
-        ascii(4, 8) == "ftyp" -> Container.MP4
-        ascii(0, 4) == "RIFF" && ascii(8, 12) == "AVI " -> Container.AVI
-        header[0] == 0x47.toByte() -> Container.TS
-        else -> null
-    }
 }

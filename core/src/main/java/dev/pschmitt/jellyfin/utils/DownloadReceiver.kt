@@ -32,7 +32,7 @@ class DownloadReceiver : BroadcastReceiver() {
             if (id != -1L) {
                 val source = database.getSourceByDownloadId(id)
                 if (source != null) {
-                    val path = source.path.replace(".download", "")
+                    val path = DownloadFileNaming.finalPath(source.path)
                     val successfulRename = File(source.path).renameTo(File(path))
                     if (successfulRename) {
                         database.setSourcePath(source.id, path)
@@ -60,7 +60,7 @@ class DownloadReceiver : BroadcastReceiver() {
                 } else {
                     val mediaStream = database.getMediaStreamByDownloadId(id)
                     if (mediaStream != null) {
-                        val path = mediaStream.path.replace(".download", "")
+                        val path = DownloadFileNaming.finalPath(mediaStream.path)
                         val successfulRename = File(mediaStream.path).renameTo(File(path))
                         if (successfulRename) {
                             database.setMediaStreamPath(mediaStream.id, path)

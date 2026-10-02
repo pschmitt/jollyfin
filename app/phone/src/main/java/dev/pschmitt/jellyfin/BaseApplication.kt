@@ -47,6 +47,7 @@ import dev.pschmitt.jellyfin.work.PendingDownloadWorker
 import dev.pschmitt.jellyfin.work.PreloadCalendarWorker
 import dev.pschmitt.jellyfin.work.QueueStatusScheduler
 import dev.pschmitt.jellyfin.work.RemoteConfigScheduler
+import dev.pschmitt.jellyfin.work.RenameLegacyDownloadsWorker
 import dev.pschmitt.jellyfin.work.SyncWorker
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -150,6 +151,7 @@ class BaseApplication : Application(), Configuration.Provider, SingletonImageLoa
         AutoBackupScheduler.schedule(applicationContext, appPreferences)
         QueueStatusScheduler.schedule(applicationContext, appPreferences, pvrConfigResolver)
         RemoteConfigScheduler.schedule(applicationContext)
+        RenameLegacyDownloadsWorker.schedule(applicationContext)
         localControlServer.startIfEnabled()
         ContextCompat.registerReceiver(
             this,

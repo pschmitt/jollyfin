@@ -2300,3 +2300,33 @@ Status: done, 2026-09-16.
 No CLI counterpart: sharing is an interactive share-sheet action with no sensible CLI shape.
 
 Status: implementation complete; device verification pending (2026-10-01).
+
+## JF-93: Readable file names for downloads
+
+Downloads were stored as extension-less `<itemId>.<sourceId>` files (inherited from Findroid),
+which made them impossible to tell apart when copying them off the device over USB/MTP.
+
+- [x] Name new downloads Jellyfin-library style below `downloads/`:
+      `Movies/Name (Year).ext`, `Shows/Series/Season 01/Series - S01E02 - Title.ext`, external
+      subtitles next to their video as `<video name>.<language>.<ext>` (`DownloadFileNaming`).
+      The extension comes from the original file on the server (`JollyfinSource.container`).
+- [x] Conflict handling: a name is free only if no download row (on any volume, so storage moves
+      can't collide either) and no file on disk uses it; otherwise try `Name - <version>.ext`
+      (Jellyfin's multi-version convention) then `Name (2).ext`, `Name (3).ext`, ... The partial
+      file is claimed atomically (`createNewFile`) under a process-wide lock, so concurrent
+      downloads can't race for the same name. Storage moves no longer overwrite stray files.
+- [x] Remove show/season/`Movies` directories once they're empty (delete, cancel, clear, move).
+- [x] Migration: `RenameLegacyDownloadsWorker` (enqueued on every phone app start, idempotent)
+      renames existing legacy downloads in place, sniffing the container from the file header
+      since their original extension was never recorded. In-progress downloads are skipped and
+      picked up by a later run. The TV app has no Hilt worker factory, so it doesn't run there.
+- [x] `.download` suffix is now only ever stripped from the end (`removeSuffix`), not replaced
+      anywhere in the path - a title containing ".download" would otherwise have broken it.
+- [x] Verified on the Zenfone 10 against the `ci/jellyfin` fixture: a download made with the
+      previous build was renamed to `Movies/Big Buck Bunny (2008).mp4` on upgrade and still played
+      offline; a new download whose name was blocked by a stray file landed as
+      `Sintel (2010) (2).mp4` (stray untouched); clearing downloads removed the empty `Movies/`.
+
+No CLI counterpart: the naming is automatic and the migration runs by itself.
+
+Status: done (2026-10-02).

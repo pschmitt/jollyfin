@@ -16,6 +16,7 @@ import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.database.ServerDatabaseDao
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
 import dev.pschmitt.jellyfin.models.JollyfinItem
+import dev.pschmitt.jellyfin.models.JollyfinMediaStreamDto
 import dev.pschmitt.jellyfin.models.JollyfinMovie
 import dev.pschmitt.jellyfin.models.JollyfinSource
 import dev.pschmitt.jellyfin.models.JollyfinSourceDto
@@ -37,6 +38,8 @@ import dev.pschmitt.jellyfin.models.toJollyfinTrickplayInfoDto
 import dev.pschmitt.jellyfin.models.toJollyfinUserDataDto
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
+import dev.pschmitt.jellyfin.utils.DownloadFileNaming.DOWNLOADS_DIR
+import dev.pschmitt.jellyfin.utils.DownloadFileNaming.PARTIAL_SUFFIX
 import dev.pschmitt.jellyfin.work.DeleteDownloadsWorker
 import dev.pschmitt.jellyfin.work.DownloadNotificationCoordinator
 import dev.pschmitt.jellyfin.work.DownloadQueueRepository
@@ -59,6 +62,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
 class DownloaderImpl(
@@ -79,6 +84,7 @@ class DownloaderImpl(
         sourceId: String,
         storageIndex: Int,
     ): Pair<Long, UiText?> = coroutineScope {
+        var reservedFile: File? = null
         try {
             val source =
                 jellyfinRepository.getMediaSources(item.id, true).first { it.id == sourceId }
@@ -100,8 +106,6 @@ class DownloaderImpl(
                     UiText.StringResource(CoreR.string.storage_unavailable),
                 )
             }
-            val path =
-                Uri.fromFile(File(storageLocation, "downloads/${item.id}.${source.id}.download"))
             val stats = StatFs(storageLocation.path)
             if (stats.availableBytes < source.size) {
                 return@coroutineScope Pair(
@@ -118,7 +122,19 @@ class DownloaderImpl(
             // now a synthetic, locally-unique 64-bit id used purely as a Room lookup key; it no
             // longer comes from DownloadManager.enqueue().
             val downloadId = UUID.randomUUID().mostSignificantBits
-            val finalPath = path.path.orEmpty().replace(".download", "")
+            val downloadsRoot = File(storageLocation, DOWNLOADS_DIR)
+            val videoRelativePath =
+                reservePath(
+                    downloadsRoot,
+                    DownloadFileNaming.uniqueCandidates(
+                        downloadBasePath(item),
+                        source.container,
+                        versionLabel = source.name,
+                    ),
+                )
+            reservedFile = File(downloadsRoot, videoRelativePath + PARTIAL_SUFFIX)
+            val path = Uri.fromFile(reservedFile)
+            val finalPath = DownloadFileNaming.finalPath(path.path.orEmpty())
 
             when (item) {
                 is JollyfinMovie -> {
@@ -165,7 +181,13 @@ class DownloaderImpl(
                 itemName = downloadDisplayName(item),
             )
 
-            downloadExternalMediaStreams(item, source, storageIndex)
+            downloadExternalMediaStreams(
+                source,
+                downloadsRoot,
+                videoBasePath =
+                    source.container?.let { videoRelativePath.removeSuffix(".$it") }
+                        ?: videoRelativePath,
+            )
 
             segments.forEach { database.insertSegment(it.toJollyfinSegmentsDto(item.id)) }
 
@@ -180,6 +202,9 @@ class DownloaderImpl(
                 val source = jellyfinRepository.getMediaSources(item.id).first { it.id == sourceId }
                 deleteItem(item, source)
             } catch (_: Exception) {}
+            // deleteItem() above only sees the remote source, so it can't know about the
+            // placeholder reservePath() created for the download.
+            reservedFile?.let { deleteDownloadFile(it.path) }
             Timber.e(e)
             return@coroutineScope Pair(
                 -1,
@@ -202,7 +227,7 @@ class DownloaderImpl(
                 "cancelDownload: no JollyfinItem found for source ${sourceDto.id}, cleaning up source only"
             )
             database.deleteSource(sourceDto.id)
-            File(sourceDto.path).delete()
+            deleteDownloadFile(sourceDto.path)
             return
         }
         deleteItem(item, sourceDto.toJollyfinSource(database))
@@ -273,7 +298,7 @@ class DownloaderImpl(
             val itemName =
                 findJollyfinItem(sourceDto.itemId)?.let { downloadDisplayName(it) }
                     ?: sourceDto.name
-            val finalPath = sourceDto.path.replace(".download", "")
+            val finalPath = DownloadFileNaming.finalPath(sourceDto.path)
 
             enqueueVideoDownload(
                 downloadId = downloadId,
@@ -300,6 +325,93 @@ class DownloaderImpl(
                 "${item.seriesName} • S${item.parentIndexNumber}E${item.indexNumber}"
             else -> item.name
         }
+
+    // Readable relative path (without extension) below downloads/ - see DownloadFileNaming.
+    private fun downloadBasePath(item: JollyfinItem): String =
+        when (item) {
+            is JollyfinMovie -> DownloadFileNaming.movieBasePath(item.name, item.productionYear)
+            is JollyfinEpisode ->
+                DownloadFileNaming.episodeBasePath(
+                    seriesName = item.seriesName,
+                    seasonNumber = item.parentIndexNumber,
+                    episodeNumber = item.indexNumber,
+                    episodeNumberEnd = item.indexNumberEnd,
+                    episodeName = item.name,
+                )
+            else -> DownloadFileNaming.sanitize(item.name)
+        }
+
+    /**
+     * Relative paths (below their volume's downloads/ dir, lowercased, without the partial suffix)
+     * of every file a download row points at, on any volume - so a name stays unique across volumes
+     * and a later storage move can't collide with another tracked download.
+     */
+    private fun takenRelativePaths(): MutableSet<String> {
+        val paths =
+            database
+                .getAllSources()
+                .filter { it.type == JollyfinSourceType.LOCAL }
+                .map { it.path } + database.getAllMediaStreams().map { it.path }
+        return paths
+            .mapNotNull { relativeDownloadPath(it) }
+            .map { DownloadFileNaming.finalPath(it).lowercase() }
+            .toMutableSet()
+    }
+
+    private fun relativeDownloadPath(path: String): String? =
+        path.substringAfter("/$DOWNLOADS_DIR/", "").ifEmpty { null }
+
+    /**
+     * Picks the first of [candidates] (relative to [downloadsRoot]) that no download row and no
+     * file on disk uses yet, and atomically claims it by creating its (empty) partial file. Holds
+     * [fileMutex] so concurrent downloads of same-named items can't pick the same name.
+     */
+    private suspend fun reservePath(downloadsRoot: File, candidates: Sequence<String>): String =
+        fileMutex.withLock {
+            val taken = takenRelativePaths()
+            candidates.first { candidate ->
+                if (candidate.lowercase() in taken) return@first false
+                val finalFile = File(downloadsRoot, candidate)
+                val partialFile = File(downloadsRoot, candidate + PARTIAL_SUFFIX)
+                if (finalFile.exists()) return@first false
+                partialFile.parentFile?.mkdirs()
+                // createNewFile() fails if the file exists, so this also covers stray partials.
+                partialFile.createNewFile()
+            }
+        }
+
+    /**
+     * Like [reservePath] but without creating anything, for files that are created by someone else
+     * (DownloadManager refuses to write to an existing destination) or renamed into place. Must be
+     * called with [fileMutex] held; adds the returned path to [taken].
+     */
+    private fun pickFreePath(
+        downloadsRoot: File,
+        candidates: Sequence<String>,
+        taken: MutableSet<String>,
+    ): String =
+        candidates
+            .first { candidate ->
+                candidate.lowercase() !in taken &&
+                    !File(downloadsRoot, candidate).exists() &&
+                    !File(downloadsRoot, candidate + PARTIAL_SUFFIX).exists()
+            }
+            .also { taken += it.lowercase() }
+
+    /** Deletes a downloaded file plus any show/season directories that end up empty. */
+    private fun deleteDownloadFile(path: String) {
+        val file = File(path)
+        file.delete()
+        pruneEmptyDirs(file)
+    }
+
+    private fun pruneEmptyDirs(file: File) {
+        var dir = file.parentFile
+        while (dir != null && dir.name != DOWNLOADS_DIR && dir.list()?.isEmpty() == true) {
+            if (!dir.delete()) break
+            dir = dir.parentFile
+        }
+    }
 
     private fun findJollyfinItem(itemId: UUID): JollyfinItem? {
         val userId = jellyfinRepository.getUserId()
@@ -380,11 +492,11 @@ class DownloaderImpl(
         }
 
         database.deleteSource(source.id)
-        File(source.path).delete()
+        deleteDownloadFile(source.path)
 
         val mediaStreams = database.getMediaStreamsBySourceId(source.id)
         for (mediaStream in mediaStreams) {
-            File(mediaStream.path).delete()
+            deleteDownloadFile(mediaStream.path)
         }
         database.deleteMediaStreamsBySourceId(source.id)
 
@@ -482,7 +594,12 @@ class DownloaderImpl(
     }
 
     /** Shared per-source move: the file itself plus any external media stream files. */
-    private fun moveSourceFiles(sourceDto: JollyfinSourceDto, fromDir: File, toDir: File) {
+    private suspend fun moveSourceFiles(sourceDto: JollyfinSourceDto, fromDir: File, toDir: File) =
+        fileMutex.withLock {
+            moveSourceFilesLocked(sourceDto, fromDir, toDir)
+        }
+
+    private fun moveSourceFilesLocked(sourceDto: JollyfinSourceDto, fromDir: File, toDir: File) {
         moveFile(File(sourceDto.path), fromDir, toDir, expectedChecksum = sourceDto.checksum)
             ?.let { newPath -> database.setSourcePath(sourceDto.id, newPath) }
         for (mediaStream in database.getMediaStreamsBySourceId(sourceDto.id)) {
@@ -517,10 +634,10 @@ class DownloaderImpl(
                         "clearDownloads: no JollyfinItem found for source ${sourceDto.id}, cleaning up source only"
                     )
                     database.deleteSource(sourceDto.id)
-                    File(sourceDto.path).delete()
+                    deleteDownloadFile(sourceDto.path)
                     val mediaStreams = database.getMediaStreamsBySourceId(sourceDto.id)
                     for (mediaStream in mediaStreams) {
-                        File(mediaStream.path).delete()
+                        deleteDownloadFile(mediaStream.path)
                     }
                     database.deleteMediaStreamsBySourceId(sourceDto.id)
                 }
@@ -551,7 +668,17 @@ class DownloaderImpl(
     ): String? {
         if (!oldFile.exists()) return null
         val relativePath = oldFile.path.removePrefix(fromDir.path).trimStart(File.separatorChar)
-        val newFile = File(toDir, relativePath)
+        var newFile = File(toDir, relativePath)
+        if (newFile.exists()) {
+            // An untracked file already sits there (tracked ones can't - names are unique across
+            // volumes, see takenRelativePaths) - move next to it rather than overwrite it.
+            val extension = newFile.extension.takeIf { it.isNotEmpty() }
+            val base = extension?.let { relativePath.removeSuffix(".$it") } ?: relativePath
+            newFile =
+                DownloadFileNaming.uniqueCandidates(base, extension)
+                    .map { File(toDir, it) }
+                    .first { !it.exists() }
+        }
         newFile.parentFile?.mkdirs()
 
         if (expectedChecksum != null) {
@@ -580,7 +707,112 @@ class DownloaderImpl(
             }
         }
         oldFile.delete()
+        pruneEmptyDirs(oldFile)
         return newFile.path
+    }
+
+    override suspend fun renameLegacyDownloads(): Int {
+        var renamed = 0
+        for (sourceDto in database.getAllSources()) {
+            if (sourceDto.type != JollyfinSourceType.LOCAL) continue
+            try {
+                renamed += fileMutex.withLock { renameLegacySourceFiles(sourceDto) }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to rename legacy download ${sourceDto.id}")
+            }
+        }
+        return renamed
+    }
+
+    /**
+     * Renames a source's legacy `<itemId>.<sourceId>` video file (once it's finished downloading)
+     * and its legacy external subtitle files to their readable names, in place on the same volume
+     * - so a plain, atomic rename. Returns how many files were renamed.
+     */
+    private fun renameLegacySourceFiles(sourceDto: JollyfinSourceDto): Int {
+        val itemId = sourceDto.itemId.toString()
+        var videoFile = File(sourceDto.path)
+        val downloadsRoot = videoFile.parentFile ?: return 0
+        var renamed = 0
+        val taken = takenRelativePaths()
+
+        if (
+            !sourceDto.path.endsWith(PARTIAL_SUFFIX) &&
+                DownloadFileNaming.isLegacyFileName(videoFile.name, itemId) &&
+                downloadsRoot.name == DOWNLOADS_DIR &&
+                videoFile.exists()
+        ) {
+            val item = findJollyfinItem(sourceDto.itemId) ?: return 0
+            // The original extension isn't recorded for these, so go by the file's content.
+            val extension = VideoContainer.sniff(videoFile)?.extension
+            val relativePath =
+                pickFreePath(
+                    downloadsRoot,
+                    DownloadFileNaming.uniqueCandidates(
+                        downloadBasePath(item),
+                        extension,
+                        versionLabel = sourceDto.name,
+                    ),
+                    taken,
+                )
+            val newFile = File(downloadsRoot, relativePath)
+            newFile.parentFile?.mkdirs()
+            if (!videoFile.renameTo(newFile)) {
+                pruneEmptyDirs(newFile)
+                throw IOException("Failed to rename ${videoFile.path} to ${newFile.path}")
+            }
+            database.setSourcePath(sourceDto.id, newFile.path)
+            Timber.i("Renamed legacy download %s to %s", videoFile.name, relativePath)
+            videoFile = newFile
+            renamed++
+        }
+
+        // Subtitles follow the video's (new) name, so only once the video itself is readable.
+        val videoRelativePath = relativeDownloadPath(videoFile.path) ?: return renamed
+        if (DownloadFileNaming.isLegacyFileName(videoFile.name, itemId)) return renamed
+        val videoRoot = File(videoFile.path.removeSuffix(videoRelativePath))
+        val videoBasePath =
+            DownloadFileNaming.finalPath(videoRelativePath).let { path ->
+                val extension = File(path).extension
+                if (extension.isNotEmpty()) path.removeSuffix(".$extension") else path
+            }
+        for (mediaStream in database.getMediaStreamsBySourceId(sourceDto.id)) {
+            if (renameLegacyMediaStream(mediaStream, itemId, videoRoot, videoBasePath, taken)) {
+                renamed++
+            }
+        }
+        return renamed
+    }
+
+    private fun renameLegacyMediaStream(
+        mediaStream: JollyfinMediaStreamDto,
+        itemId: String,
+        downloadsRoot: File,
+        videoBasePath: String,
+        taken: MutableSet<String>,
+    ): Boolean {
+        val oldFile = File(mediaStream.path)
+        if (mediaStream.path.endsWith(PARTIAL_SUFFIX)) return false
+        if (!DownloadFileNaming.isLegacyFileName(oldFile.name, itemId) || !oldFile.exists()) {
+            return false
+        }
+        val relativePath =
+            pickFreePath(
+                downloadsRoot,
+                DownloadFileNaming.uniqueCandidates(
+                    DownloadFileNaming.subtitleBasePath(videoBasePath, mediaStream.language),
+                    DownloadFileNaming.subtitleExtension(null, mediaStream.codec),
+                ),
+                taken,
+            )
+        val newFile = File(downloadsRoot, relativePath)
+        newFile.parentFile?.mkdirs()
+        if (!oldFile.renameTo(newFile)) {
+            Timber.e("Failed to rename legacy subtitle %s to %s", oldFile.path, newFile.path)
+            return false
+        }
+        database.setMediaStreamPath(mediaStream.id, newFile.path)
+        return true
     }
 
     override suspend fun deleteItems(itemIds: List<UUID>) {
@@ -677,34 +909,52 @@ class DownloaderImpl(
         }
     }
 
-    private fun downloadExternalMediaStreams(
-        item: JollyfinItem,
+    private suspend fun downloadExternalMediaStreams(
         source: JollyfinSource,
-        storageIndex: Int = 0,
+        downloadsRoot: File,
+        videoBasePath: String,
     ) {
-        val storageLocation = context.getExternalFilesDirs(null)[storageIndex]
-        for (mediaStream in source.mediaStreams.filter { it.isExternal }) {
-            val id = UUID.randomUUID()
-            val streamPath =
-                Uri.fromFile(
-                    File(storageLocation, "downloads/${item.id}.${source.id}.$id.download")
+        val externalStreams = source.mediaStreams.filter { it.isExternal }
+        if (externalStreams.isEmpty()) return
+        fileMutex.withLock {
+            val taken = takenRelativePaths()
+            for (mediaStream in externalStreams) {
+                val id = UUID.randomUUID()
+                val relativePath =
+                    pickFreePath(
+                        downloadsRoot,
+                        DownloadFileNaming.uniqueCandidates(
+                            DownloadFileNaming.subtitleBasePath(
+                                videoBasePath,
+                                mediaStream.language,
+                            ),
+                            DownloadFileNaming.subtitleExtension(
+                                mediaStream.path,
+                                mediaStream.codec,
+                            ),
+                        ),
+                        taken,
+                    )
+                val streamFile = File(downloadsRoot, relativePath + PARTIAL_SUFFIX)
+                streamFile.parentFile?.mkdirs()
+                val streamPath = Uri.fromFile(streamFile)
+                database.insertMediaStream(
+                    mediaStream.toJollyfinMediaStreamDto(id, source.id, streamPath.path.orEmpty())
                 )
-            database.insertMediaStream(
-                mediaStream.toJollyfinMediaStreamDto(id, source.id, streamPath.path.orEmpty())
-            )
-            val request =
-                DownloadManager.Request(mediaStream.path!!.toUri())
-                    .setTitle(mediaStream.title)
-                    .setAllowedOverMetered(
-                        appPreferences.getValue(appPreferences.downloadOverMobileData)
-                    )
-                    .setAllowedOverRoaming(
-                        appPreferences.getValue(appPreferences.downloadWhenRoaming)
-                    )
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
-                    .setDestinationUri(streamPath)
-            val downloadId = downloadManager.enqueue(request)
-            database.setMediaStreamDownloadId(id, downloadId)
+                val request =
+                    DownloadManager.Request(mediaStream.path!!.toUri())
+                        .setTitle(mediaStream.title)
+                        .setAllowedOverMetered(
+                            appPreferences.getValue(appPreferences.downloadOverMobileData)
+                        )
+                        .setAllowedOverRoaming(
+                            appPreferences.getValue(appPreferences.downloadWhenRoaming)
+                        )
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
+                        .setDestinationUri(streamPath)
+                val downloadId = downloadManager.enqueue(request)
+                database.setMediaStreamDownloadId(id, downloadId)
+            }
         }
     }
 
@@ -754,6 +1004,10 @@ class DownloaderImpl(
     }
 
     companion object {
+        // Serializes everything that picks or changes download file names (new downloads, storage
+        // moves, the legacy rename), so two of them can't claim the same name at once.
+        private val fileMutex = Mutex()
+
         private const val DELETE_DOWNLOADS_WORK_NAME = "deleteDownloads"
         private const val MIGRATE_DOWNLOADS_WORK_NAME = "migrateDownloads"
     }

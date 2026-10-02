@@ -18,6 +18,9 @@ data class JollyfinSource(
     val checksum: String? = null,
     val pausedByBatterySaver: Boolean = false,
     val excludeFromAutoDelete: Boolean = false,
+    // File extension of the original file on the server (e.g. "mkv"), used to name downloads.
+    // Only known for remote sources fresh from the server - see [originalFileExtension].
+    val container: String? = null,
 )
 
 suspend fun MediaSourceInfo.toJollyfinSource(
@@ -45,7 +48,33 @@ suspend fun MediaSourceInfo.toJollyfinSource(
         size = size ?: 0,
         mediaStreams =
             mediaStreams?.map { it.toJollyfinMediaStream(jellyfinRepository) } ?: emptyList(),
+        container = originalFileExtension(this.path, container),
     )
+}
+
+/**
+ * Best guess at the original file's extension: the extension of the server-side [path] when it has
+ * a plausible one, otherwise derived from Jellyfin's [container] string, which can be a
+ * comma-separated list of aliases for the same demuxer (e.g. `mov,mp4,m4a,3gp,3g2,mj2`).
+ */
+fun originalFileExtension(path: String?, container: String?): String? {
+    val plausible = Regex("^[a-z0-9]{1,5}$")
+    path
+        ?.substringAfterLast('/')
+        ?.substringAfterLast('\\')
+        ?.substringAfterLast('.', "")
+        ?.lowercase()
+        ?.takeIf { plausible.matches(it) }
+        ?.let {
+            return it
+        }
+    val aliases = container?.lowercase()?.split(',')?.map { it.trim() }.orEmpty()
+    return when {
+        "mp4" in aliases -> "mp4"
+        "matroska" in aliases -> "mkv"
+        "mpegts" in aliases -> "ts"
+        else -> aliases.firstOrNull()?.takeIf { plausible.matches(it) }
+    }
 }
 
 fun JollyfinSourceDto.toJollyfinSource(serverDatabaseDao: ServerDatabaseDao): JollyfinSource {

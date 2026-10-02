@@ -9,11 +9,12 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /**
- * [FileProvider] for sharing downloaded episodes/movies with other apps. Downloads are stored as
- * extension-less `<itemId>.<sourceId>` files, which would reach the receiving app as an opaque UUID
- * with an `application/octet-stream` type - so [uriFor] carries a human-readable display name and
- * MIME type as query parameters, and [query]/[getType] report those instead. File resolution itself
- * only looks at the URI path, so the query parameters don't affect which file is served.
+ * [FileProvider] for sharing downloaded episodes/movies with other apps. Older downloads are stored
+ * as extension-less `<itemId>.<sourceId>` files (until DownloaderImpl.renameLegacyDownloads gets to
+ * them), which would reach the receiving app as an opaque UUID with an `application/octet-stream`
+ * type - so [uriFor] carries a human-readable display name and MIME type as query parameters, and
+ * [query]/[getType] report those instead. File resolution itself only looks at the URI path, so the
+ * query parameters don't affect which file is served.
  */
 class DownloadShareProvider : FileProvider() {
     override fun query(
