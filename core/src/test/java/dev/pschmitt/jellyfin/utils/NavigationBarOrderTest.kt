@@ -27,4 +27,29 @@ class NavigationBarOrderTest {
             ),
         )
     }
+
+    @Test
+    fun webUiTabsAreHiddenUntilOptedIn() {
+        val natural = listOf("home", "webui:sonarr", "webui:radarr")
+        assertEquals(
+            setOf("webui:sonarr", "webui:radarr"),
+            effectiveNavigationBarHidden(natural, hidden = emptyList(), optedIn = emptyList()),
+        )
+        assertEquals(
+            setOf("webui:radarr"),
+            effectiveNavigationBarHidden(
+                natural,
+                hidden = emptyList(),
+                optedIn = listOf("webui:sonarr"),
+            ),
+        )
+        assertEquals(
+            setOf("favorites", "webui:radarr"),
+            effectiveNavigationBarHidden(
+                natural,
+                hidden = listOf("favorites"),
+                optedIn = listOf("webui:sonarr"),
+            ),
+        )
+    }
 }

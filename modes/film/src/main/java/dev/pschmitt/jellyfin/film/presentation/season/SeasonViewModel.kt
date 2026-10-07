@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.api.pvr.PvrRelease
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSizeEstimate
 import dev.pschmitt.jellyfin.core.presentation.search.ReleasePickerState
@@ -18,6 +19,7 @@ import dev.pschmitt.jellyfin.models.RemoteDeviceInfo
 import dev.pschmitt.jellyfin.models.isDownloading
 import dev.pschmitt.jellyfin.models.toJollyfinEpisode
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.ExistingAutoDownloadScope
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
@@ -60,6 +62,7 @@ constructor(
     private val seasonEpisodesRepository: SeasonEpisodesRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pvrWebUiLinks: PvrWebUiLinks,
     private val pendingDownloadRequestRepository: PendingDownloadRequestRepository,
     @ApplicationScope private val externalScope: CoroutineScope,
 ) : ViewModel() {
@@ -107,6 +110,8 @@ constructor(
                         seriesTvdbId = seriesTvdbId,
                         seriesTmdbId = series.tmdbId?.toIntOrNull(),
                         sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.RADARR },
                         autoDeleteWatchedEnabled =
                             appPreferences.getValue(appPreferences.autoDeleteWatched),
                         autoDeleteWatchedHours =

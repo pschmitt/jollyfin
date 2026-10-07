@@ -12,6 +12,9 @@ import dev.pschmitt.jellyfin.models.JollyfinItem
 import dev.pschmitt.jellyfin.models.JollyfinMovie
 import dev.pschmitt.jellyfin.models.JollyfinSeason
 import dev.pschmitt.jellyfin.models.JollyfinShow
+import dev.pschmitt.jellyfin.presentation.pvr.displayName
+import dev.pschmitt.jellyfin.presentation.pvr.icon
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.settings.R as SettingsR
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
@@ -20,6 +23,7 @@ import dev.pschmitt.jellyfin.settings.domain.defaultNavigationBarLabel
 import dev.pschmitt.jellyfin.settings.domain.navigationBarPinnedItemsFromString
 import dev.pschmitt.jellyfin.settings.domain.navigationBarPinnedItemsToString
 import dev.pschmitt.jellyfin.utils.NavigationBarItemKeys
+import dev.pschmitt.jellyfin.utils.effectiveNavigationBarHidden
 import dev.pschmitt.jellyfin.utils.navigationBarOrderFromString
 import dev.pschmitt.jellyfin.utils.navigationBarOrderToString
 import dev.pschmitt.jellyfin.utils.resolveNavigationBarOrder
@@ -38,6 +42,7 @@ data class NavigationBarRow(
     @DrawableRes val icon: Int,
     val imageUri: String? = null,
     val showImage: Boolean = false,
+    val tintIcon: Boolean = true,
 )
 
 data class NavigationBarSettingsState(
@@ -53,6 +58,7 @@ class NavigationBarSettingsViewModel
 constructor(
     private val repository: JellyfinRepository,
     private val appPreferences: AppPreferences,
+    private val pvrWebUiLinks: PvrWebUiLinks,
 ) : ViewModel() {
     private val _state = MutableStateFlow(NavigationBarSettingsState())
     val state = _state.asStateFlow()
@@ -61,14 +67,15 @@ constructor(
     fun resolveVisibleItems(
         items: List<dev.pschmitt.jellyfin.TabBarItem>
     ): List<dev.pschmitt.jellyfin.TabBarItem> {
+        val natural = items.map { it.key }
         val keys =
             resolveNavigationBarOrder(
-                natural = items.map { it.key },
+                natural = natural,
                 persisted =
                     navigationBarOrderFromString(
                         appPreferences.getValue(appPreferences.navigationBarOrder)
                     ),
-                hidden = currentHidden().toSet(),
+                hidden = effectiveHidden(natural),
             )
         val byKey = items.associateBy { it.key }
         return keys.mapNotNull(byKey::get)
@@ -142,6 +149,16 @@ constructor(
                     icon = CoreR.drawable.ic_calendar,
                 )
             )
+            pvrWebUiLinks.availableServices().forEach { service ->
+                add(
+                    NavigationBarRow(
+                        NavigationBarItemKeys.webUi(service.name),
+                        service.displayName,
+                        icon = service.icon,
+                        tintIcon = false,
+                    )
+                )
+            }
             add(
                 NavigationBarRow(
                     NavigationBarItemKeys.FAVORITES,
@@ -228,6 +245,7 @@ constructor(
             appPreferences.navigationBarHiddenItems,
             navigationBarOrderToString(hidden),
         )
+        setOptedIn(key, false)
         recomputeRows()
     }
 
@@ -237,11 +255,13 @@ constructor(
             appPreferences.navigationBarHiddenItems,
             navigationBarOrderToString(hidden),
         )
+        if (NavigationBarItemKeys.isHiddenByDefault(key)) setOptedIn(key, true)
         recomputeRows()
     }
 
     fun reset() {
         appPreferences.setValue(appPreferences.navigationBarOrder, null)
+        appPreferences.setValue(appPreferences.navigationBarOptInItems, null)
         val pinnedKeys = pinnedItems().map { it.key }
         appPreferences.setValue(
             appPreferences.navigationBarHiddenItems,
@@ -355,9 +375,25 @@ constructor(
             appPreferences.getValue(appPreferences.navigationBarHiddenItems)
         )
 
+    private fun optedIn(): List<String> =
+        navigationBarOrderFromString(
+            appPreferences.getValue(appPreferences.navigationBarOptInItems)
+        )
+
+    private fun setOptedIn(key: String, optedIn: Boolean) {
+        val keys = optedIn().filterNot { it == key } + listOfNotNull(key.takeIf { optedIn })
+        appPreferences.setValue(
+            appPreferences.navigationBarOptInItems,
+            navigationBarOrderToString(keys),
+        )
+    }
+
+    private fun effectiveHidden(natural: Collection<String>): Set<String> =
+        effectiveNavigationBarHidden(natural, currentHidden(), optedIn())
+
     private fun recomputeRows() {
         val natural = cachedRows.keys.toList()
-        val hidden = currentHidden().toSet()
+        val hidden = effectiveHidden(natural)
         val order =
             resolveNavigationBarOrder(
                 natural,

@@ -488,6 +488,12 @@
     <string name="pvr_queue_status_failed">Failed</string>
     <string name="import_issue_title">Import issue</string>
     <string name="title_calendar">Calendar</string>
+    <string name="pvr_web_ui_open_in">Open in %1$s</string>
+    <string name="pvr_web_ui_open_in_browser">Open in browser</string>
+    <string name="pvr_web_ui_reload">Reload</string>
+    <string name="pvr_web_ui_no_browser">No browser available to open this link</string>
+    <string name="pvr_web_ui_unavailable">%1$s isn\'t set up - configure it under Settings &gt; Integrations</string>
+    <string name="pvr_queue_select">Select</string>
     <string name="discover_filter_all">All</string>
     <string name="discover_filter_movies">Movies</string>
     <string name="discover_filter_shows">Shows</string>

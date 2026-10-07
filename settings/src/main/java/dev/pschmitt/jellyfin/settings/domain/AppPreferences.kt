@@ -34,6 +34,8 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     val navigationBarHiddenItems =
         Preference<String?>("pref_navigation_bar_hidden_items", "favorites,next_up,settings")
     val navigationBarPinnedItems = Preference<String?>("pref_navigation_bar_pinned_items", null)
+    // Hidden-by-default navbar items (NavigationBarItemKeys.isHiddenByDefault) the user enabled.
+    val navigationBarOptInItems = Preference<String?>("pref_navigation_bar_opt_in_items", null)
     val dateFormat = Preference("pref_date_format", "system")
 
     // Player

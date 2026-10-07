@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ class MediaViewModel
 constructor(
     private val repository: JellyfinRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pvrWebUiLinks: PvrWebUiLinks,
 ) : ViewModel() {
     private val _state = MutableStateFlow(MediaState())
     val state = _state.asStateFlow()
@@ -27,6 +29,7 @@ constructor(
                     isLoading = true,
                     error = null,
                     showCalendarTab = pvrConfiguration.isAnyConfigured(),
+                    webUiServices = pvrWebUiLinks.availableServices(),
                 )
             )
             try {

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.api.pvr.PvrRelease
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.search.ReleasePickerState
 import dev.pschmitt.jellyfin.core.presentation.search.SearchEvent
@@ -16,6 +17,7 @@ import dev.pschmitt.jellyfin.models.JollyfinMovie
 import dev.pschmitt.jellyfin.models.QueueItemStatus
 import dev.pschmitt.jellyfin.models.SeerrMediaType
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
 import dev.pschmitt.jellyfin.repository.RadarrSearchRepository
@@ -47,6 +49,7 @@ constructor(
     private val radarrSearchRepository: RadarrSearchRepository,
     private val queueStatusRepository: QueueStatusRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pvrWebUiLinks: PvrWebUiLinks,
     private val seerrRepository: SeerrRepository,
     private val database: ServerDatabaseDao,
     private val downloader: Downloader,
@@ -108,6 +111,8 @@ constructor(
                         dateFormat = dateFormat,
                         radarrConfigured = pvrConfiguration.isRadarrConfigured(),
                         seerrConfigured = pvrConfiguration.isSeerrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.SONARR },
                         canDelete = canDelete,
                         isRefreshing = false,
                     )

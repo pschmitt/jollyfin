@@ -44,6 +44,7 @@ import androidx.core.graphics.toColorInt
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pschmitt.jellyfin.PlayerActivity
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
@@ -72,12 +73,14 @@ import dev.pschmitt.jellyfin.presentation.film.components.ItemHeader
 import dev.pschmitt.jellyfin.presentation.film.components.ItemMetaRow
 import dev.pschmitt.jellyfin.presentation.film.components.ItemOverflowMenu
 import dev.pschmitt.jellyfin.presentation.film.components.ItemPoster
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.UpcomingSeasonCard
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.formatBinaryFileSize
 import dev.pschmitt.jellyfin.utils.formatCalendarDate
@@ -95,6 +98,7 @@ fun ShowScreen(
     navigateToPerson: (personId: UUID) -> Unit,
     navigateToSeerr: (tmdbId: Int, seasonNumber: Int) -> Unit,
     navigateToSettings: () -> Unit,
+    navigateToWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     viewModel: ShowViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -146,6 +150,15 @@ fun ShowScreen(
         getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         getOtherDevices = viewModel::getOtherDevices,
         onRefresh = { viewModel.loadShow(showId = showId) },
+        onOpenWebUi = { service ->
+            navigateToWebUi(
+                service,
+                PvrWebUiTarget(
+                    tvdbId = state.seriesTvdbId?.toIntOrNull(),
+                    tmdbId = state.seriesTmdbId,
+                ),
+            )
+        },
         onAction = { action ->
             when (action) {
                 is ShowAction.Play -> {
@@ -208,6 +221,7 @@ private fun ShowScreenLayout(
     state: ShowState,
     onAction: (ShowAction) -> Unit,
     onRefresh: () -> Unit = {},
+    onOpenWebUi: (PvrService) -> Unit = {},
     getSeasonSize: suspend (seasonId: UUID, onlyUnwatched: Boolean) -> DownloadSizeEstimate =
         { _, _ ->
             DownloadSizeEstimate()
@@ -342,6 +356,11 @@ private fun ShowScreenLayout(
                                         closeMenu()
                                         onAction(ShowAction.SearchSeriesAutomatic)
                                     },
+                                )
+                                OpenInWebUiMenuItems(
+                                    services = state.webUiServices,
+                                    closeMenu = closeMenu,
+                                    onClick = onOpenWebUi,
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(CoreR.string.info)) },

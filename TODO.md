@@ -2330,3 +2330,47 @@ which made them impossible to tell apart when copying them off the device over U
 No CLI counterpart: the naming is automatic and the migration runs by itself.
 
 Status: done (2026-10-02).
+
+## JF-94: Sonarr/Radarr/Seerr web UI inside the app
+
+Open each service's own web UI without leaving Jollyfin, with the service's configured custom
+HTTP headers / basic auth applied (reverse proxies that gate on a header otherwise just bounce an
+in-app WebView or the system browser).
+
+- [x] In-app web UI screen (WebView) per service: GET requests are re-issued through OkHttp with
+      the profile's custom headers + basic auth (cookies synced with `CookieManager`); a small
+      document-start shim adds the same headers to same-origin `fetch`/XHR calls so non-GET API
+      calls carry them too. Basic-auth challenges are answered from the stored credentials.
+- [x] One navbar tab per service (`webui:sonarr`/`webui:radarr`/`webui:seerr`), only available
+      when the service is configured, and hidden by default (opt-in via Settings > Navigation bar).
+- [x] "Open in browser" action from the web UI screen (best effort: custom headers are passed via
+      `Browser.EXTRA_HEADERS`, which most browsers ignore for non-CORS-safelisted headers).
+- [x] "Open in Sonarr"/"Open in Radarr"/"Open in Seerr" in the Show/Movie overflow menus (series
+      or movie page if the service knows it, its add/search page otherwise) - and on Season/
+      Episode pages too, opening the series' page (Sonarr/Seerr have no per-season/episode page).
+- [x] Long-press on a pending download (Downloads > Pending downloads) offers "Select" and
+      "Open in Sonarr/Radarr" instead of jumping straight into selection mode.
+- [x] CLI parity: `GET /pvr/webui` local control endpoint + `jollyfin-cli webui` subcommand that
+      resolves the (deep) web UI URL, optionally opening it via `termux-open-url`.
+- [x] Verify formatting, compilation, and relevant tests remotely; install a release build on the
+      Pixel 11 Pro.
+- [ ] Verify on a real device: tabs against the real Sonarr/Radarr/Seerr (incl. a header-gated
+      proxy), deep links from Show/Movie/pending downloads, and `jollyfin-cli webui` from Termux.
+
+Not covered on the TV app (no WebView-friendly navigation there).
+
+Status: implemented (2026-10-07) - remote `ktfmtCheck`, `:app:phone`/`:app:tv` compile and
+`data`/`core` unit tests pass on rofl-13; release APK installed on the Pixel 11 Pro, on-device
+verification pending.
+
+## JF-95: Crash on detail pages whose cast lists a person twice
+
+`ActorsRow` keyed its `LazyRow` items by person id alone, but Jellyfin credits the same person once
+per role (e.g. a voice actor playing two characters) - Compose then throws `Key "<id>" was already
+used` and the whole app crashes as soon as such a show/movie/episode page renders its cast.
+
+- [x] Key cast entries by id + position instead.
+- [x] Root-caused from the Pixel 11 Pro's crash buffer (retraced against the 2.15.5 release mapping).
+- [ ] Confirm on the Pixel 11 Pro that the previously crashing page opens.
+
+Status: fixed (2026-10-07), on-device confirmation pending.

@@ -38,6 +38,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pschmitt.jellyfin.PlayerActivity
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloaderAction
@@ -65,6 +66,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.ItemMetaRow
 import dev.pschmitt.jellyfin.presentation.film.components.ItemOverflowMenu
 import dev.pschmitt.jellyfin.presentation.film.components.LocalStorageIndicator
 import dev.pschmitt.jellyfin.presentation.film.components.ManualImportSheet
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.QueueBadge
@@ -74,6 +76,7 @@ import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.format
 import java.util.UUID
@@ -87,6 +90,7 @@ fun MovieScreen(
     navigateHome: () -> Unit,
     navigateToPerson: (personId: UUID) -> Unit,
     navigateToSettings: () -> Unit,
+    navigateToWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     viewModel: MovieViewModel = hiltViewModel(),
     downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
@@ -158,6 +162,12 @@ fun MovieScreen(
         downloaderState = downloaderState,
         downloadLocationPreference = downloaderViewModel.downloadLocationPreference,
         onRefresh = { viewModel.loadMovie(movieId = movieId) },
+        onOpenWebUi = { service ->
+            navigateToWebUi(
+                service,
+                PvrWebUiTarget(tmdbId = state.movie?.tmdbId?.toIntOrNull(), isMovie = true),
+            )
+        },
         onAction = { action ->
             when (action) {
                 is MovieAction.Play -> {
@@ -234,6 +244,7 @@ private fun MovieScreenLayout(
     onAction: (MovieAction) -> Unit,
     onDownloaderAction: (DownloaderAction) -> Unit,
     onManageImportClick: () -> Unit = {},
+    onOpenWebUi: (PvrService) -> Unit = {},
 ) {
     val androidContext = LocalContext.current
     val safePadding = rememberSafePadding()
@@ -381,6 +392,11 @@ private fun MovieScreenLayout(
                                         closeMenu()
                                         onAction(MovieAction.OpenReleasePicker)
                                     },
+                                )
+                                OpenInWebUiMenuItems(
+                                    services = state.webUiServices,
+                                    closeMenu = closeMenu,
+                                    onClick = onOpenWebUi,
                                 )
                                 if (state.videoMetadata != null) {
                                     DropdownMenuItem(

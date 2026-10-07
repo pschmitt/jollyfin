@@ -39,6 +39,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.Constants
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.core.presentation.dummy.dummyEpisode
@@ -102,6 +105,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.ClearDownloadsDialog
 import dev.pschmitt.jellyfin.presentation.film.components.Direction
 import dev.pschmitt.jellyfin.presentation.film.components.ItemPoster
 import dev.pschmitt.jellyfin.presentation.film.components.ManualImportSheet
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.PvrErrorBanner
 import dev.pschmitt.jellyfin.presentation.film.components.PvrQueueLoadingPlaceholder
 import dev.pschmitt.jellyfin.presentation.film.components.SectionServiceIcons
@@ -109,6 +113,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.ToggleOptionRow
 import dev.pschmitt.jellyfin.presentation.theme.HeaderIconColors
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.DeleteProgress
 import dev.pschmitt.jellyfin.utils.DeviceStorageStats
 import dev.pschmitt.jellyfin.utils.DownloadProgress
@@ -131,6 +136,7 @@ fun DownloadsScreen(
     onMoviesClick: () -> Unit = {},
     onGoToHomeClick: () -> Unit = {},
     onPvrItemClick: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
+    onOpenInWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -236,6 +242,7 @@ fun DownloadsScreen(
         onForceGroup = viewModel::forceGroup,
         onPvrRemoveRequest = { item, source -> pendingPvrRemove = item to source },
         onPvrItemClick = onPvrItemClick,
+        onOpenInWebUi = onOpenInWebUi,
         onTogglePvrQueueSelectionCluster = viewModel::togglePvrQueueSelectionCluster,
         onTogglePvrQueueSelectAll = viewModel::togglePvrQueueSelectAll,
         onManageImport = viewModel::openManualImport,
@@ -383,6 +390,7 @@ private fun DownloadsScreenLayout(
     onForceGroup: (List<UUID>) -> Unit = {},
     onPvrRemoveRequest: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
     onPvrItemClick: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
+    onOpenInWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     onTogglePvrQueueSelectionCluster: (PvrSource, List<Int>) -> Unit = { _, _ -> },
     onTogglePvrQueueSelectAll: (Boolean) -> Unit = {},
     onManageImport: (PvrQueueUiItem, PvrSource) -> Unit = { _, _ -> },
@@ -631,41 +639,93 @@ private fun DownloadsScreenLayout(
                                         queueItem.clusteredQueueItemIds.all {
                                             (group.source to it) in state.selectedPvrQueueIds
                                         }
-                                    PvrQueueRow(
-                                        queueItem = queueItem,
-                                        selectionMode = pvrSelectionMode,
-                                        checked = checked,
-                                        onClick =
-                                            if (
-                                                queueItem.item != null || queueItem.tmdbId != null
-                                            ) {
-                                                {
-                                                    queueItem.item?.let(onItemClick)
-                                                        ?: onPvrItemClick(queueItem, group.source)
-                                                }
-                                            } else {
-                                                null
+                                    var contextMenuOpen by remember { mutableStateOf(false) }
+                                    val toggleSelection = {
+                                        onTogglePvrQueueSelectionCluster(
+                                            group.source,
+                                            queueItem.clusteredQueueItemIds,
+                                        )
+                                    }
+                                    Box {
+                                        PvrQueueRow(
+                                            queueItem = queueItem,
+                                            selectionMode = pvrSelectionMode,
+                                            checked = checked,
+                                            onClick =
+                                                if (
+                                                    queueItem.item != null ||
+                                                        queueItem.tmdbId != null
+                                                ) {
+                                                    {
+                                                        queueItem.item?.let(onItemClick)
+                                                            ?: onPvrItemClick(
+                                                                queueItem,
+                                                                group.source,
+                                                            )
+                                                    }
+                                                } else {
+                                                    null
+                                                },
+                                            // Outside selection mode, long-press offers selecting
+                                            // the row alongside jumping to it in Sonarr/Radarr.
+                                            onLongClick = {
+                                                if (pvrSelectionMode) toggleSelection()
+                                                else contextMenuOpen = true
                                             },
-                                        onLongClick = {
-                                            onTogglePvrQueueSelectionCluster(
-                                                group.source,
-                                                queueItem.clusteredQueueItemIds,
-                                            )
-                                        },
-                                        onToggleSelection = {
-                                            onTogglePvrQueueSelectionCluster(
-                                                group.source,
-                                                queueItem.clusteredQueueItemIds,
-                                            )
-                                        },
-                                        onRemove = { onPvrRemoveRequest(queueItem, group.source) },
-                                        onManageImport =
-                                            if (queueItem.status.downloadId != null) {
-                                                { onManageImport(queueItem, group.source) }
-                                            } else {
-                                                null
+                                            onToggleSelection = toggleSelection,
+                                            onRemove = {
+                                                onPvrRemoveRequest(queueItem, group.source)
                                             },
-                                    )
+                                            onManageImport =
+                                                if (queueItem.status.downloadId != null) {
+                                                    { onManageImport(queueItem, group.source) }
+                                                } else {
+                                                    null
+                                                },
+                                        )
+                                        DropdownMenu(
+                                            expanded = contextMenuOpen,
+                                            onDismissRequest = { contextMenuOpen = false },
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        stringResource(
+                                                            CoreR.string.pvr_queue_select
+                                                        )
+                                                    )
+                                                },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        painter =
+                                                            painterResource(
+                                                                CoreR.drawable.ic_check
+                                                            ),
+                                                        contentDescription = null,
+                                                    )
+                                                },
+                                                onClick = {
+                                                    contextMenuOpen = false
+                                                    toggleSelection()
+                                                },
+                                            )
+                                            OpenInWebUiMenuItems(
+                                                services = listOf(group.source.toPvrService()),
+                                                closeMenu = { contextMenuOpen = false },
+                                                onClick = { service ->
+                                                    onOpenInWebUi(
+                                                        service,
+                                                        PvrWebUiTarget(
+                                                            tmdbId = queueItem.tmdbId,
+                                                            titleSlug = queueItem.pvrTitleSlug,
+                                                            isMovie =
+                                                                group.source == PvrSource.RADARR,
+                                                        ),
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2467,3 +2527,9 @@ private fun DownloadsScreenLayoutPreview() {
 private fun DownloadsScreenLayoutEmptyPreview() {
     JollyfinTheme { DownloadsScreenLayout(state = DownloadsState()) }
 }
+
+private fun PvrSource.toPvrService(): PvrService =
+    when (this) {
+        PvrSource.SONARR -> PvrService.SONARR
+        PvrSource.RADARR -> PvrService.RADARR
+    }

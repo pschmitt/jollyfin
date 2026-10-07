@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pschmitt.jellyfin.PlayerActivity
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
@@ -69,6 +70,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.ItemMetaRow
 import dev.pschmitt.jellyfin.presentation.film.components.ItemOverflowMenu
 import dev.pschmitt.jellyfin.presentation.film.components.LocalStorageIndicator
 import dev.pschmitt.jellyfin.presentation.film.components.ManualImportSheet
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.ReleasePickerSheet
@@ -77,6 +79,7 @@ import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.format
 import java.util.UUID
@@ -92,6 +95,7 @@ fun EpisodeScreen(
     navigateToSeason: (seasonId: UUID) -> Unit,
     navigateToShow: (showId: UUID) -> Unit,
     navigateToSettings: () -> Unit,
+    navigateToWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     viewModel: EpisodeViewModel = hiltViewModel(),
     downloaderViewModel: DownloaderViewModel = hiltViewModel(),
 ) {
@@ -167,6 +171,15 @@ fun EpisodeScreen(
         getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         getOtherDevices = viewModel::getOtherDevices,
         onRefresh = { viewModel.loadEpisode(episodeId = episodeId) },
+        onOpenWebUi = { service ->
+            navigateToWebUi(
+                service,
+                PvrWebUiTarget(
+                    tvdbId = state.seriesTvdbId?.toIntOrNull(),
+                    tmdbId = state.seriesTmdbId,
+                ),
+            )
+        },
         onAction = { action ->
             when (action) {
                 is EpisodeAction.Play -> {
@@ -235,6 +248,7 @@ private fun EpisodeScreenLayout(
     downloaderState: DownloaderState,
     downloadLocationPreference: String = "ask",
     onRefresh: () -> Unit = {},
+    onOpenWebUi: (PvrService) -> Unit = {},
     getSeasons: suspend () -> List<JollyfinSeason> = { emptyList() },
     getSeasonSize: suspend (seasonId: UUID, onlyUnwatched: Boolean) -> DownloadSizeEstimate =
         { _, _ ->
@@ -404,6 +418,11 @@ private fun EpisodeScreenLayout(
                                         closeMenu()
                                         onAction(EpisodeAction.OpenReleasePicker)
                                     },
+                                )
+                                OpenInWebUiMenuItems(
+                                    services = state.webUiServices,
+                                    closeMenu = closeMenu,
+                                    onClick = onOpenWebUi,
                                 )
                                 if (state.videoMetadata != null) {
                                     DropdownMenuItem(

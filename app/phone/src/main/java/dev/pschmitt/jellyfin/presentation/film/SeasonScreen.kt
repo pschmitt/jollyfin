@@ -42,6 +42,7 @@ import androidx.core.graphics.toColorInt
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.pschmitt.jellyfin.PlayerActivity
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSizeEstimate
@@ -65,12 +66,14 @@ import dev.pschmitt.jellyfin.presentation.film.components.ItemHeader
 import dev.pschmitt.jellyfin.presentation.film.components.ItemMetaRow
 import dev.pschmitt.jellyfin.presentation.film.components.ItemOverflowMenu
 import dev.pschmitt.jellyfin.presentation.film.components.ItemPoster
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.PlayOverlayButton
 import dev.pschmitt.jellyfin.presentation.film.components.ReleasePickerSheet
 import dev.pschmitt.jellyfin.presentation.film.components.UpcomingEpisodeCard
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.displayNameWithContext
 import java.util.UUID
@@ -93,6 +96,7 @@ fun SeasonScreen(
             airTime: String?,
         ) -> Unit,
     navigateToSettings: () -> Unit,
+    navigateToWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     viewModel: SeasonViewModel = hiltViewModel(),
 ) {
     val androidContext = LocalContext.current
@@ -122,6 +126,15 @@ fun SeasonScreen(
         getSeasonSize = viewModel::getUndownloadedEpisodeSize,
         getOtherDevices = viewModel::getOtherDevices,
         onRefresh = { viewModel.loadSeason(seasonId = seasonId) },
+        onOpenWebUi = { service ->
+            navigateToWebUi(
+                service,
+                PvrWebUiTarget(
+                    tvdbId = state.seriesTvdbId?.toIntOrNull(),
+                    tmdbId = state.seriesTmdbId,
+                ),
+            )
+        },
         onAction = { action ->
             when (action) {
                 is SeasonAction.Play -> {
@@ -185,6 +198,7 @@ private fun SeasonScreenLayout(
     state: SeasonState,
     onAction: (SeasonAction) -> Unit,
     onRefresh: () -> Unit = {},
+    onOpenWebUi: (PvrService) -> Unit = {},
     getSeasons: suspend () -> List<JollyfinSeason> = { emptyList() },
     getSeasonSize: suspend (seasonId: UUID, onlyUnwatched: Boolean) -> DownloadSizeEstimate =
         { _, _ ->
@@ -416,6 +430,11 @@ private fun SeasonScreenLayout(
                                             },
                                         )
                                     }
+                                    OpenInWebUiMenuItems(
+                                        services = state.webUiServices,
+                                        closeMenu = closeMenu,
+                                        onClick = onOpenWebUi,
+                                    )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(CoreR.string.info)) },
                                         leadingIcon = {

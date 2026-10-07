@@ -3,6 +3,7 @@ package dev.pschmitt.jellyfin.film.presentation.show
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSizeEstimate
@@ -20,6 +21,7 @@ import dev.pschmitt.jellyfin.models.RemoteDeviceInfo
 import dev.pschmitt.jellyfin.models.SeerrMediaType
 import dev.pschmitt.jellyfin.models.toJollyfinEpisode
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.CalendarRepository
 import dev.pschmitt.jellyfin.repository.ExistingAutoDownloadScope
@@ -66,6 +68,7 @@ constructor(
     private val pendingDownloadRequestRepository: PendingDownloadRequestRepository,
     private val sonarrSearchRepository: SonarrSearchRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pvrWebUiLinks: PvrWebUiLinks,
     @ApplicationScope private val externalScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ShowState())
@@ -116,6 +119,8 @@ constructor(
                         seriesTmdbId = show.tmdbId?.toIntOrNull(),
                         sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
                         seerrConfigured = pvrConfiguration.isSeerrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.RADARR },
                         canDelete = canDelete,
                         isRefreshing = false,
                     )

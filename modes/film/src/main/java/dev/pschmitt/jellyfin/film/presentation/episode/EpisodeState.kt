@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.film.presentation.episode
 
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.search.ReleasePickerState
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
 import dev.pschmitt.jellyfin.models.JollyfinItemPerson
@@ -15,6 +16,10 @@ data class EpisodeState(
     val dateFormat: String = "system",
     val existingScope: ExistingAutoDownloadScope = ExistingAutoDownloadScope(),
     val seriesTvdbId: String? = null,
+    val seriesTmdbId: Int? = null,
+    // Services whose web UI is reachable, offered as "Open in ..." overflow entries (JF-94) -
+    // Sonarr/Seerr open the series' own page, there being no per-episode/season page.
+    val webUiServices: List<PvrService> = emptyList(),
     // Gates the search button - no point offering a Sonarr search that can only fail with a
     // toast when Sonarr isn't (fully) configured.
     val sonarrConfigured: Boolean = false,

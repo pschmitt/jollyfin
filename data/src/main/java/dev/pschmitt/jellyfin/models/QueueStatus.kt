@@ -19,6 +19,9 @@ data class PvrQueueEntry(
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val posterUrl: String? = null,
+    // The series'/movie's path segment in Sonarr's/Radarr's web UI - deep-links "Open in Sonarr/
+    // Radarr" straight to its page. Null when the queue row couldn't be joined to a series/movie.
+    val pvrTitleSlug: String? = null,
     // The PVR service's own id for this queue row - stable across polls, so snapshots can be
     // diffed to detect a download leaving the queue (= finished importing, in the common case).
     val queueItemId: Int = 0,

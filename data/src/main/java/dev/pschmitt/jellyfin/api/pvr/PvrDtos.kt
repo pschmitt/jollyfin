@@ -16,6 +16,8 @@ data class SonarrSeries(
     val tvdbId: Int = 0,
     val tmdbId: Int = 0,
     val title: String = "",
+    // The series' path segment in Sonarr's own web UI (`/series/<titleSlug>`).
+    val titleSlug: String? = null,
     val images: List<PvrImage> = emptyList(),
 )
 
@@ -28,6 +30,8 @@ data class RadarrMovie(
     val id: Int,
     val tmdbId: Int = 0,
     val title: String = "",
+    // The movie's path segment in Radarr's own web UI (`/movie/<titleSlug>`).
+    val titleSlug: String? = null,
     val images: List<PvrImage> = emptyList(),
 )
 

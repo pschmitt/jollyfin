@@ -658,6 +658,7 @@ internal fun buildPvrQueueGroups(entries: List<PvrQueueEntry>): List<PvrQueueGro
                         sonarrEpisodeId = entry.sonarrEpisodeId,
                         seasonNumber = entry.seasonNumber,
                         episodeNumber = entry.episodeNumber,
+                        pvrTitleSlug = entry.pvrTitleSlug,
                         status = entry.status,
                         queueItemId = entry.queueItemId,
                         duplicates = cluster,

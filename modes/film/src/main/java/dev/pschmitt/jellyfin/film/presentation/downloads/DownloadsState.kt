@@ -88,6 +88,8 @@ data class PvrQueueUiItem(
     val sonarrEpisodeId: Int? = null,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
+    // See PvrQueueEntry.pvrTitleSlug - deep-links the long-press "Open in Sonarr/Radarr" action.
+    val pvrTitleSlug: String? = null,
     val status: QueueStatus,
     // The PVR service's own queue-row id, needed to remove the entry (see
     // QueueStatusRepository.removeQueueItem). Belongs to the entry this row's own display fields

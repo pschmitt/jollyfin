@@ -89,6 +89,11 @@ Enable it in the app first: Settings > Downloads > Local CLI access.
   seerr requests [--take N]                  List Seerr requests (alias: req)
   seerr discover [trending|movies|tv] [--page N]  Browse Seerr discover (alias: disc)
   seerr search TERM [--page N]               Search Seerr
+  webui SERVICE [--tvdb ID] [--tmdb ID] [--movie] [--open]
+                                              Print the web UI URL of SERVICE (sonarr|radarr|
+                                              seerr) - a series'/movie's page with --tvdb/--tmdb
+                                              (--movie: Seerr movie page instead of TV); --open
+                                              opens it via termux-open-url (no custom headers)
   download list [--active|--completed]       List the app's real downloads (--active: only
                                               in-progress, with live percent/speed/eta)
                                               (download alias: dl; list alias: ls)
@@ -632,6 +637,69 @@ cmd_seerr_search() {
   fi
   check_response "${response}" || return 1
   render_seerr_search_table "${response}"
+}
+
+# jollyfin-cli webui SERVICE [--tvdb ID] [--tmdb ID] [--movie] [--open] - resolves a link into
+# Sonarr's/Radarr's/Seerr's own web UI via the app's configured base URL.
+cmd_webui() {
+  local service="" tvdb_id="" tmdb_id="" type="" open_url=""
+
+  while [[ -n "${1:-}" ]]
+  do
+    case "$1" in
+      --tvdb)
+        tvdb_id="${2:-}"
+        shift 2
+        ;;
+      --tmdb)
+        tmdb_id="${2:-}"
+        shift 2
+        ;;
+      --movie)
+        type="movie"
+        shift
+        ;;
+      --open)
+        open_url=1
+        shift
+        ;;
+      sonarr|radarr|seerr)
+        service="$1"
+        shift
+        ;;
+      *)
+        printf 'Unknown option: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+  done
+
+  if [[ -z "${service}" ]]
+  then
+    printf 'webui requires SERVICE (sonarr|radarr|seerr)\n' >&2
+    return 2
+  fi
+
+  local response
+  response=$(local_request "GET" "/pvr/webui$(build_query "service=${service}" "tvdbId=${tvdb_id}" "tmdbId=${tmdb_id}" "type=${type}")")
+  if [[ -n "${JSON_OUTPUT}" ]]
+  then
+    print_response_json "${response}"
+  else
+    check_response "${response}" || return 1
+    jq -r '.body.url' <<< "${response}"
+  fi
+
+  if [[ -n "${open_url}" ]]
+  then
+    check_response "${response}" || return 1
+    if ! command -v termux-open-url >/dev/null 2>&1
+    then
+      printf 'termux-open-url not found (pkg install termux-tools)\n' >&2
+      return 1
+    fi
+    termux-open-url "$(jq -r '.body.url' <<< "${response}")"
+  fi
 }
 
 # jollyfin-cli download list [--active|--completed] - one row per downloaded source (movies and,
@@ -1328,6 +1396,10 @@ main() {
           return 2
           ;;
       esac
+      ;;
+    webui)
+      shift
+      cmd_webui "$@"
       ;;
     download|dl)
       shift

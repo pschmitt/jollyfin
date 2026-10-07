@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.film.presentation.show
 
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.models.CalendarEntry
 import dev.pschmitt.jellyfin.models.JollyfinEpisode
 import dev.pschmitt.jellyfin.models.JollyfinItemPerson
@@ -39,6 +40,9 @@ data class ShowState(
     // dialog - shown when either service is configured, independently of the other.
     val sonarrConfigured: Boolean = false,
     val seerrConfigured: Boolean = false,
+    // Services whose web UI is reachable (enabled + base URL), offered as "Open in ..." entries
+    // in the overflow menu (JF-94).
+    val webUiServices: List<PvrService> = emptyList(),
     // Whether the current Jellyfin user's policy allows deleting media at all - gates whether
     // "Delete from Jellyfin" is shown in the overflow menu, rather than showing it and having the
     // delete fail with a permissions error.

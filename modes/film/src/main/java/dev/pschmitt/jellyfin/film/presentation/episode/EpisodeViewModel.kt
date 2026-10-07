@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.api.pvr.PvrRelease
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.delete.DeleteItemEvent
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSelection
 import dev.pschmitt.jellyfin.core.presentation.downloader.DownloadSizeEstimate
@@ -22,6 +23,7 @@ import dev.pschmitt.jellyfin.models.JollyfinSourceType
 import dev.pschmitt.jellyfin.models.QueueItemStatus
 import dev.pschmitt.jellyfin.models.RemoteDeviceInfo
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.ExistingAutoDownloadScope
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
@@ -63,6 +65,7 @@ constructor(
     private val sonarrSearchRepository: SonarrSearchRepository,
     private val queueStatusRepository: QueueStatusRepository,
     private val pvrConfiguration: PvrConfiguration,
+    private val pvrWebUiLinks: PvrWebUiLinks,
     @ApplicationScope private val externalScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow(EpisodeState())
@@ -123,7 +126,8 @@ constructor(
                 val actors = getActors(episode)
                 val dateFormat = appPreferences.getValue(appPreferences.dateFormat)
                 val existingScope = getExistingScope(episode.seriesId)
-                val seriesTvdbId = repository.getShow(episode.seriesId).tvdbId
+                val series = repository.getShow(episode.seriesId)
+                val seriesTvdbId = series.tvdbId
                 val canDelete = repository.canDeleteMedia()
                 _state.emit(
                     _state.value.copy(
@@ -133,7 +137,10 @@ constructor(
                         dateFormat = dateFormat,
                         existingScope = existingScope,
                         seriesTvdbId = seriesTvdbId,
+                        seriesTmdbId = series.tmdbId?.toIntOrNull(),
                         sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.RADARR },
                         canDelete = canDelete,
                         autoDeleteWatchedEnabled =
                             appPreferences.getValue(appPreferences.autoDeleteWatched),

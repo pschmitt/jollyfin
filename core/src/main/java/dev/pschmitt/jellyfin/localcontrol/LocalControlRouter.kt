@@ -19,6 +19,8 @@ import dev.pschmitt.jellyfin.models.JollyfinShow
 import dev.pschmitt.jellyfin.models.JollyfinSourceType
 import dev.pschmitt.jellyfin.pvr.PvrConfigResolver
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.repository.RemoteConfigRepository
@@ -72,6 +74,7 @@ constructor(
     private val autoDownloadRuleRepository: AutoDownloadRuleRepository,
     private val remoteConfigRepository: RemoteConfigRepository,
     private val appVersionInfo: AppVersionInfo,
+    private val pvrWebUiLinks: PvrWebUiLinks,
 ) {
     suspend fun handle(
         method: String,
@@ -100,6 +103,7 @@ constructor(
                     method == "GET" && path.startsWith("/seerr/discover/") ->
                         getSeerrDiscover(path.removePrefix("/seerr/discover/"), queryParams)
                     method == "GET" && path == "/seerr/search" -> getSeerrSearch(queryParams)
+                    method == "GET" && path == "/pvr/webui" -> getPvrWebUi(queryParams)
                     method == "GET" && path == "/autodownload/rules" -> listAutoDownloadRules()
                     method == "POST" && path == "/autodownload/rules" -> addAutoDownloadRule(body)
                     method == "POST" && path == "/autodownload/rules/remove" ->
@@ -644,6 +648,44 @@ constructor(
             is JollyfinFolder -> "folder"
             else -> "unknown"
         }
+
+    /**
+     * Resolves a link into Sonarr's/Radarr's/Seerr's web UI (JF-94) - the service's start page, or
+     * a series'/movie's page when `tvdbId`/`tmdbId` are given (its "add new" search if the service
+     * doesn't know it yet). `type=movie` picks Seerr's movie page over its TV page.
+     */
+    private suspend fun getPvrWebUi(queryParams: Map<String, String>): LocalControlResponse {
+        val service =
+            queryParams["service"]?.let { name ->
+                PvrService.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            }
+                ?: return LocalControlResponse(
+                    LocalControlStatus.BAD_REQUEST,
+                    errorBody("service must be one of: sonarr, radarr, seerr"),
+                )
+        val url =
+            pvrWebUiLinks.resolve(
+                service,
+                PvrWebUiTarget(
+                    tvdbId = queryParams["tvdbId"]?.toIntOrNull(),
+                    tmdbId = queryParams["tmdbId"]?.toIntOrNull(),
+                    isMovie =
+                        queryParams["type"].equals("movie", ignoreCase = true) ||
+                            service == PvrService.RADARR,
+                ),
+            )
+                ?: return LocalControlResponse(
+                    LocalControlStatus.CONFLICT,
+                    errorBody("${service.name.lowercase()} is not configured/enabled"),
+                )
+        return LocalControlResponse(
+            LocalControlStatus.OK,
+            buildJsonObject {
+                put("service", service.name.lowercase())
+                put("url", url)
+            },
+        )
+    }
 
     private suspend fun getSonarrSeries(): LocalControlResponse {
         if (!pvrConfiguration.isSonarrConfigured()) {

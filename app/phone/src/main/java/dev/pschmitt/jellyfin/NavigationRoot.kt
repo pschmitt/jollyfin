@@ -28,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.film.presentation.media.MediaViewModel
 import dev.pschmitt.jellyfin.models.CollectionType
@@ -55,6 +56,9 @@ import dev.pschmitt.jellyfin.presentation.film.PersonScreen
 import dev.pschmitt.jellyfin.presentation.film.SeasonScreen
 import dev.pschmitt.jellyfin.presentation.film.SeerrMediaScreen
 import dev.pschmitt.jellyfin.presentation.film.ShowScreen
+import dev.pschmitt.jellyfin.presentation.pvr.PvrWebUiScreen
+import dev.pschmitt.jellyfin.presentation.pvr.displayName
+import dev.pschmitt.jellyfin.presentation.pvr.icon
 import dev.pschmitt.jellyfin.presentation.settings.AboutScreen
 import dev.pschmitt.jellyfin.presentation.settings.SettingsFileEditScreen
 import dev.pschmitt.jellyfin.presentation.settings.SettingsScreen
@@ -77,6 +81,7 @@ import dev.pschmitt.jellyfin.presentation.setup.servers.ServersScreen
 import dev.pschmitt.jellyfin.presentation.setup.users.UsersScreen
 import dev.pschmitt.jellyfin.presentation.setup.welcome.WelcomeScreen
 import dev.pschmitt.jellyfin.presentation.utils.LocalOfflineMode
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.settings.domain.NavigationBarPinnedItem
 import dev.pschmitt.jellyfin.utils.NavigationBarItemKeys
 import java.util.UUID
@@ -103,6 +108,18 @@ import kotlinx.serialization.Serializable
 @Serializable data object DownloadsRoute
 
 @Serializable data object CalendarRoute
+
+// Sonarr's/Radarr's/Seerr's own web UI (JF-94). service is a PvrService enum name. The remaining
+// fields pick the page to open (see PvrWebUiTarget) - all unset for a navbar tab.
+@Serializable
+data class PvrWebUiRoute(
+    val service: String,
+    val isTab: Boolean = false,
+    val tvdbId: Int? = null,
+    val tmdbId: Int? = null,
+    val titleSlug: String? = null,
+    val isMovie: Boolean = false,
+)
 
 // The merged movies+shows browse view - replaces the per-library Movies/Shows tabs.
 @Serializable data object MediaRoute
@@ -186,6 +203,7 @@ data class TabBarItem(
     val showImage: Boolean = false,
     val route: Any,
     val enabled: Boolean = true,
+    val tintIcon: Boolean = true,
 )
 
 @Composable private fun TabBarItem.resolvedTitle(): String = titleText ?: stringResource(title)
@@ -230,6 +248,15 @@ private fun pinnedTab(item: NavigationBarPinnedItem): TabBarItem? {
         route = route,
     )
 }
+
+private fun webUiTab(service: PvrService) =
+    TabBarItem(
+        key = NavigationBarItemKeys.webUi(service.name),
+        title = service.displayName,
+        icon = service.icon,
+        route = PvrWebUiRoute(service = service.name, isTab = true),
+        tintIcon = false,
+    )
 
 val homeTab =
     TabBarItem(
@@ -280,6 +307,22 @@ val settingsTab =
         icon = CoreR.drawable.ic_settings,
         route = settingsRootRoute(),
     )
+
+private fun navigateToWebUi(
+    navController: NavHostController,
+    service: PvrService,
+    target: PvrWebUiTarget,
+) {
+    navController.safeNavigate(
+        PvrWebUiRoute(
+            service = service.name,
+            tvdbId = target.tvdbId,
+            tmdbId = target.tmdbId,
+            titleSlug = target.titleSlug,
+            isMovie = target.isMovie,
+        )
+    )
+}
 
 /** Plain "open Settings at its root", not scrolled to any particular section. */
 private fun settingsRootRoute() = SettingsRoute(indexes = intArrayOf(CoreR.string.title_settings))
@@ -343,6 +386,7 @@ fun NavigationRoot(
                     standaloneLibraries.map(::libraryTab) +
                     listOf(downloadsTab) +
                     (if (mediaState.showCalendarTab) listOf(calendarTab) else emptyList()) +
+                    mediaState.webUiServices.map(::webUiTab) +
                     listOf(favoritesTab, nextUpTab, settingsTab) +
                     pinnedItemsVersion.let {
                         navigationSettingsViewModel.pinnedItems().mapNotNull(::pinnedTab)
@@ -357,10 +401,19 @@ fun NavigationRoot(
     val currentLibraryRoute = navBackStackEntry?.let { entry ->
         runCatching { entry.toRoute<LibraryRoute>() }.getOrNull()
     }
+    val currentWebUiRoute =
+        navBackStackEntry
+            ?.takeIf {
+                currentRoute?.startsWith(PvrWebUiRoute::class.qualifiedName.orEmpty()) == true
+            }
+            ?.let { entry -> runCatching { entry.toRoute<PvrWebUiRoute>() }.getOrNull() }
 
     fun TabBarItem.isSelected(): Boolean =
         when (val r = route) {
             is LibraryRoute -> currentLibraryRoute?.libraryId == r.libraryId
+            // Only the tab's own entry counts - an "Open in Sonarr" detail page isn't the tab.
+            is PvrWebUiRoute ->
+                currentWebUiRoute?.let { it.isTab && it.service == r.service } == true
             is MovieRoute ->
                 if (key.startsWith("item:")) {
                     navBackStackEntry?.let {
@@ -444,7 +497,8 @@ fun NavigationRoot(
                             // that save/restore behavior for tabs with their own dedicated route
                             // type, and skip re-navigating if the tapped library tab is already
                             // the open one.
-                            item.route !is LibraryRoute || !item.isSelected() -> {
+                            (item.route !is LibraryRoute && item.route !is PvrWebUiRoute) ||
+                                !item.isSelected() -> {
                                 navController.navigate(item.route) {
                                     popUpTo(navController.graph.startDestinationId) {
                                         // A tab tap is an explicit request for that tab's root,
@@ -462,6 +516,7 @@ fun NavigationRoot(
                             imageUri = item.imageUri.takeIf { item.showImage },
                             iconRes = item.icon,
                             contentDescription = item.resolvedTitle(),
+                            tintIcon = item.tintIcon,
                         )
                     },
                     enabled = item.enabled,
@@ -624,6 +679,9 @@ fun NavigationRoot(
                     onShowClick = { showId ->
                         navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
+                    onOpenInWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                     onMoviesClick = { navController.safeNavigate(MediaRoute) },
                     onSettingsClick = {
                         navController.safeNavigate(
@@ -641,6 +699,21 @@ fun NavigationRoot(
                         // the back stack - pop back to it, same as tapping the Home tab.
                         navController.popBackStack(route = HomeRoute, inclusive = false)
                     },
+                )
+            }
+            composable<PvrWebUiRoute> { backStackEntry ->
+                val route: PvrWebUiRoute = backStackEntry.toRoute()
+                PvrWebUiScreen(
+                    service = PvrService.valueOf(route.service),
+                    target =
+                        PvrWebUiTarget(
+                            tvdbId = route.tvdbId,
+                            tmdbId = route.tmdbId,
+                            titleSlug = route.titleSlug,
+                            isMovie = route.isMovie,
+                        ),
+                    isTab = route.isTab,
+                    navigateBack = { navController.safePopBackStack() },
                 )
             }
             composable<CalendarRoute> {
@@ -790,6 +863,9 @@ fun NavigationRoot(
                         navController.safeNavigate(PersonRoute(personId.toString()))
                     },
                     navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
+                    navigateToWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                 )
             }
             composable<ShowRoute> { backStackEntry ->
@@ -814,6 +890,9 @@ fun NavigationRoot(
                         )
                     },
                     navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
+                    navigateToWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                 )
             }
             composable<SeasonRoute> { backStackEntry ->
@@ -851,6 +930,9 @@ fun NavigationRoot(
                         )
                     },
                     navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
+                    navigateToWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                 )
             }
             composable<EpisodeRoute> { backStackEntry ->
@@ -872,6 +954,9 @@ fun NavigationRoot(
                         navController.safeNavigate(ShowRoute(showId = showId.toString()))
                     },
                     navigateToSettings = { navController.safeNavigate(settingsRootRoute()) },
+                    navigateToWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                 )
             }
             composable<PersonRoute> { backStackEntry ->

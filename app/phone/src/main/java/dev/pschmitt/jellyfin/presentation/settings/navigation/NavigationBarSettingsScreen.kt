@@ -355,6 +355,7 @@ private fun NavigationBarPreview(rows: List<NavigationBarRow>) {
                             imageUri = row.imageUri.takeIf { row.showImage },
                             iconRes = row.icon,
                             contentDescription = null,
+                            tintIcon = row.tintIcon,
                         )
                         Text(
                             text = row.titleText ?: stringResource(row.title),
@@ -401,6 +402,7 @@ private fun NavigationBarRowItem(
                 iconRes = row.icon,
                 contentDescription = null,
                 modifier = iconModifier,
+                tintIcon = row.tintIcon,
             )
             Text(
                 text = row.titleText ?: stringResource(row.title),

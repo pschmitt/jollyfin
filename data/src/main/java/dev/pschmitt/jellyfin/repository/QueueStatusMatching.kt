@@ -66,6 +66,7 @@ fun matchSonarr(
             seasonNumber = item.seasonNumber.takeIf { it != UNSET_PROVIDER_ID },
             episodeNumber = episodeNumber,
             posterUrl = sonarrSeries?.images?.posterUrl(),
+            pvrTitleSlug = sonarrSeries?.titleSlug?.takeIf { it.isNotBlank() },
             queueItemId = item.id,
         )
     }
@@ -93,6 +94,7 @@ fun matchRadarr(
             status = item.toQueueStatus(),
             tmdbId = radarrMovie?.tmdbId?.takeIf { it != UNSET_PROVIDER_ID },
             posterUrl = radarrMovie?.images?.posterUrl(),
+            pvrTitleSlug = radarrMovie?.titleSlug?.takeIf { it.isNotBlank() },
             queueItemId = item.id,
         )
     }
