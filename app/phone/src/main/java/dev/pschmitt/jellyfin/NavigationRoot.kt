@@ -826,6 +826,9 @@ fun NavigationRoot(
                             )
                         }
                     },
+                    navigateToWebUi = { service, target ->
+                        navigateToWebUi(navController, service, target)
+                    },
                     navigateToSeason = { seasonNumber, seasonId ->
                         if (seasonId != null) {
                             navController.safeNavigate(SeasonRoute(seasonId = seasonId.toString()))

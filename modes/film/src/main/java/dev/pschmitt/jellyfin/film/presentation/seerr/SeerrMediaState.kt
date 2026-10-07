@@ -1,5 +1,6 @@
 package dev.pschmitt.jellyfin.film.presentation.seerr
 
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.search.ReleasePickerState
 import dev.pschmitt.jellyfin.models.PvrQueueEntry
 import dev.pschmitt.jellyfin.models.QueueStatus
@@ -19,6 +20,9 @@ data class SeerrMediaState(
     val isSubmitting: Boolean = false,
     val pvrSearchConfigured: Boolean = false,
     val manualPvrSearchAvailable: Boolean = false,
+    // Services whose web UI is reachable, offered as "Open in ..." overflow entries (JF-94) - the
+    // only way to reach e.g. a not-yet-downloaded episode's series in Sonarr.
+    val webUiServices: List<PvrService> = emptyList(),
     val queueStatus: QueueStatus? = null,
     // Every entry in this item's own duplicate cluster (see PvrQueueEntry.duplicateGroupKey) -
     // unlike [queueStatus], which is already collapsed to one. Mirrors MovieState.queueEntries.

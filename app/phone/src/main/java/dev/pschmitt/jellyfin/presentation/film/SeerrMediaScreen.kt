@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.film.presentation.seerr.SeerrMediaAction
 import dev.pschmitt.jellyfin.film.presentation.seerr.SeerrMediaEvent
@@ -57,7 +58,9 @@ import dev.pschmitt.jellyfin.presentation.film.components.ErrorCard
 import dev.pschmitt.jellyfin.presentation.film.components.ItemActionButton
 import dev.pschmitt.jellyfin.presentation.film.components.ItemHeader
 import dev.pschmitt.jellyfin.presentation.film.components.ItemMetaRow
+import dev.pschmitt.jellyfin.presentation.film.components.ItemOverflowMenu
 import dev.pschmitt.jellyfin.presentation.film.components.ManualImportSheet
+import dev.pschmitt.jellyfin.presentation.film.components.OpenInWebUiMenuItems
 import dev.pschmitt.jellyfin.presentation.film.components.OverviewText
 import dev.pschmitt.jellyfin.presentation.film.components.PvrQueueDownloadCard
 import dev.pschmitt.jellyfin.presentation.film.components.PvrSearchButton
@@ -66,6 +69,7 @@ import dev.pschmitt.jellyfin.presentation.film.components.SeerrStatusChip
 import dev.pschmitt.jellyfin.presentation.theme.JollyfinTheme
 import dev.pschmitt.jellyfin.presentation.theme.spacings
 import dev.pschmitt.jellyfin.presentation.utils.rememberSafePadding
+import dev.pschmitt.jellyfin.pvr.PvrWebUiTarget
 import dev.pschmitt.jellyfin.utils.ObserveAsEvents
 import dev.pschmitt.jellyfin.utils.formatCalendarDate
 import dev.pschmitt.jellyfin.utils.formatCalendarTime
@@ -91,6 +95,7 @@ fun SeerrMediaScreen(
     airTime: LocalTime? = null,
     navigateToShow: (UUID?) -> Unit = {},
     navigateToSeason: (Int, UUID?) -> Unit = { _, _ -> },
+    navigateToWebUi: (PvrService, PvrWebUiTarget) -> Unit = { _, _ -> },
     navigateBack: () -> Unit,
     viewModel: SeerrMediaViewModel = hiltViewModel(),
 ) {
@@ -158,6 +163,12 @@ fun SeerrMediaScreen(
         state = state,
         navigateToShow = navigateToShow,
         navigateToSeason = navigateToSeason,
+        onOpenWebUi = { service ->
+            navigateToWebUi(
+                service,
+                PvrWebUiTarget(tmdbId = tmdbId, isMovie = mediaType == SeerrMediaType.MOVIE),
+            )
+        },
         onAction = { action ->
             when (action) {
                 is SeerrMediaAction.OnRequest -> lastActionWasCancel = false
@@ -192,6 +203,7 @@ private fun SeerrMediaScreenLayout(
     navigateToSeason: (Int, UUID?) -> Unit,
     onAction: (SeerrMediaAction) -> Unit,
     onManageImportClick: () -> Unit = {},
+    onOpenWebUi: (PvrService) -> Unit = {},
 ) {
     val safePadding = rememberSafePadding()
     val context = LocalContext.current
@@ -220,12 +232,24 @@ private fun SeerrMediaScreenLayout(
                     )
                     Column(modifier = Modifier.padding(start = paddingStart, end = paddingEnd)) {
                         Spacer(Modifier.height(MaterialTheme.spacings.small))
-                        Text(
-                            text = detail.episode?.title ?: detail.title,
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 2,
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                            Text(
+                                text = detail.episode?.title ?: detail.title,
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 2,
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (state.webUiServices.isNotEmpty()) {
+                                ItemOverflowMenu { closeMenu ->
+                                    OpenInWebUiMenuItems(
+                                        services = state.webUiServices,
+                                        closeMenu = closeMenu,
+                                        onClick = onOpenWebUi,
+                                    )
+                                }
+                            }
+                        }
                         // Same breadcrumb style as EpisodeScreen's series-name/season-episode
                         // lines (plain clickable Text in labelLarge, not a TextButton) - this
                         // screen's hierarchy is more variable (plain movie, show only, show +

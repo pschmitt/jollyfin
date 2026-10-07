@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.api.pvr.PvrRelease
+import dev.pschmitt.jellyfin.api.pvr.PvrService
 import dev.pschmitt.jellyfin.core.presentation.search.ReleasePickerState
 import dev.pschmitt.jellyfin.film.presentation.downloads.ManualImportController
 import dev.pschmitt.jellyfin.film.presentation.downloads.PendingImportRef
@@ -11,6 +12,7 @@ import dev.pschmitt.jellyfin.models.PvrSource
 import dev.pschmitt.jellyfin.models.QueueItemStatus
 import dev.pschmitt.jellyfin.models.SeerrMediaType
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
+import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
 import dev.pschmitt.jellyfin.repository.RadarrSearchRepository
@@ -52,6 +54,7 @@ constructor(
     private val queueStatusRepository: QueueStatusRepository,
     private val pvrConfiguration: PvrConfiguration,
     private val jellyfinRepository: JellyfinRepository,
+    private val pvrWebUiLinks: PvrWebUiLinks,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SeerrMediaState())
     val state = _state.asStateFlow()
@@ -116,6 +119,14 @@ constructor(
                         when (mediaType) {
                             SeerrMediaType.MOVIE -> pvrConfiguration.isRadarrConfigured()
                             SeerrMediaType.TV -> pvrConfiguration.isSonarrConfigured()
+                        },
+                    webUiServices =
+                        pvrWebUiLinks.availableServices().filter {
+                            it !=
+                                when (mediaType) {
+                                    SeerrMediaType.MOVIE -> PvrService.SONARR
+                                    SeerrMediaType.TV -> PvrService.RADARR
+                                }
                         },
                     manualPvrSearchAvailable =
                         when (mediaType) {
