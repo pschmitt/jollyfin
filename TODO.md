@@ -2381,3 +2381,18 @@ used` and the whole app crashes as soon as such a show/movie/episode page render
 - [ ] Confirm on the Pixel 11 Pro that the previously crashing page opens.
 
 Status: fixed (2026-10-07), on-device confirmation pending.
+
+## JF-96: Fresh installs have no profile, so Sonarr/Radarr/Seerr can't be configured
+
+`ProfileMigrationRunner` only backfills profiles for pre-existing users, and its doc assumed the
+first login creates the first profile - but nothing in the normal login flow did. A fresh install
+therefore landed on "No profiles yet", and since PVR config is per-profile there was nowhere to
+enter Sonarr/Radarr/Seerr until the user created a profile by hand.
+
+- [x] `LoginViewModel` creates the first (main) profile for the logged-in user and makes it
+      current, after both password and Quick Connect logins - only when no profile exists yet, so
+      the Profiles screen's own add-login flow (which creates its profile itself) doesn't duplicate.
+- [x] Verified on the Zenfone 10: cleared app data, added the `ci/jellyfin` fixture, logged in -
+      Settings > Profiles shows `admin@JollyFin CI Fixture` as Main straight away.
+
+Status: **done** (2026-10-07).

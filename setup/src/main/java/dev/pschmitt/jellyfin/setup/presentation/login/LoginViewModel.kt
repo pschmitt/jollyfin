@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.pschmitt.jellyfin.core.R as CoreR
 import dev.pschmitt.jellyfin.models.UiText
 import dev.pschmitt.jellyfin.setup.R as SetupR
+import dev.pschmitt.jellyfin.setup.domain.ProfileRepository
 import dev.pschmitt.jellyfin.setup.domain.SetupRepository
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -17,7 +18,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class LoginViewModel @Inject constructor(private val repository: SetupRepository) : ViewModel() {
+class LoginViewModel
+@Inject
+constructor(
+    private val repository: SetupRepository,
+    private val profileRepository: ProfileRepository,
+) : ViewModel() {
     private val _state = MutableStateFlow(LoginState())
     val state = _state.asStateFlow()
 
@@ -58,6 +64,7 @@ class LoginViewModel @Inject constructor(private val repository: SetupRepository
             try {
                 _state.emit(_state.value.copy(isLoading = true, error = null))
                 repository.login(username, password)
+                ensureFirstProfile()
                 _state.emit(_state.value.copy(isLoading = false))
                 eventsChannel.send(LoginEvent.Success)
             } catch (e: Exception) {
@@ -88,6 +95,7 @@ class LoginViewModel @Inject constructor(private val repository: SetupRepository
                 }
 
                 repository.loginWithSecret(quickConnectState.secret)
+                ensureFirstProfile()
 
                 _state.emit(_state.value.copy(quickConnectCode = null))
                 eventsChannel.send(LoginEvent.Success)
@@ -95,6 +103,19 @@ class LoginViewModel @Inject constructor(private val repository: SetupRepository
                 _state.emit(_state.value.copy(quickConnectCode = null))
             }
         }
+    }
+
+    /**
+     * A fresh install's first login has no Profile to land in, and Sonarr/Radarr/Seerr are only
+     * configurable per profile - so create the first (main) one here, mirroring what upgrading
+     * installs get from ProfileMigrationRunner. Later logins (adding a user, re-logging in) leave
+     * profiles alone; those are managed from Settings > Profiles.
+     */
+    private suspend fun ensureFirstProfile() {
+        if (profileRepository.getProfiles().isNotEmpty()) return
+        val user = repository.getCurrentUser() ?: return
+        val profile = profileRepository.createProfile(user.id)
+        profileRepository.setCurrentProfile(profile.id)
     }
 
     fun onAction(action: LoginAction) {
