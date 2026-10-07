@@ -2354,14 +2354,21 @@ in-app WebView or the system browser).
       resolves the (deep) web UI URL, optionally opening it via `termux-open-url`.
 - [x] Verify formatting, compilation, and relevant tests remotely; install a release build on the
       Pixel 11 Pro.
-- [ ] Verify on a real device: tabs against the real Sonarr/Radarr/Seerr (incl. a header-gated
-      proxy), deep links from Show/Movie/pending downloads, and `jollyfin-cli webui` from Termux.
+- [x] Verified on the Zenfone 10 (2.16.0 release build) against the `ci/jellyfin` fixture plus a
+      throwaway Radarr behind an nginx that 403s anything without `X-Jollyfin-Test`, and a plain
+      Sonarr: web UI tabs listed under hidden navbar destinations by default; the Radarr tab loads
+      fully through the gate (page, assets, API GETs) and in-page actions work (POST
+      /api/v3/command -> 201 via the fetch/XHR shim); "Open in Radarr" from Big Buck Bunny lands on
+      `/movie/10378`. Known limits confirmed: SignalR's WebSocket can't carry the header (403) so
+      Radarr falls back to long polling; "Open in browser" (Firefox) ignores
+      `Browser.EXTRA_HEADERS` and gets the gate's 403.
+- [ ] Still unverified on device: pending-download long-press (needs a real queue entry), Seerr,
+      Sonarr deep links (the fixture has no shows), and `jollyfin-cli webui` from Termux.
 
 Not covered on the TV app (no WebView-friendly navigation there).
 
-Status: implemented (2026-10-07) - remote `ktfmtCheck`, `:app:phone`/`:app:tv` compile and
-`data`/`core` unit tests pass on rofl-13; release APK installed on the Pixel 11 Pro, on-device
-verification pending.
+Status: mostly done (2026-10-07) - remote `ktfmtCheck`, `:app:phone`/`:app:tv` compile and
+`data`/`core` unit tests pass on rofl-13; core flows verified live on the Zenfone 10 (see above).
 
 ## JF-95: Crash on detail pages whose cast lists a person twice
 
