@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -99,7 +99,13 @@ private fun PersonScreenLayout(
         onHomeClick = { onAction(PersonAction.NavigateHome) },
         onSettingsClick = { onAction(PersonAction.NavigateToSettings) },
     ) {
-        PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
+        // Same as Show/Movie: the pull-to-refresh indicator is the only loading spinner, and
+        // fillMaxSize keeps it centered before any content exists to size the box.
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
             state.person?.let { person ->
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Spacer(Modifier.height(MaterialTheme.spacings.default))
@@ -210,7 +216,7 @@ private fun PersonScreenLayout(
 
                     Spacer(Modifier.height(paddingBottom))
                 }
-            } ?: run { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+            }
         }
     }
 }
