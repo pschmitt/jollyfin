@@ -1,6 +1,9 @@
 package dev.pschmitt.jellyfin
 
+import android.app.PendingIntent
+import android.content.Intent
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -15,8 +18,16 @@ abstract class BasePlayerActivity : AppCompatActivity() {
 
     abstract val viewModel: PlayerViewModel
 
-    private lateinit var mediaSession: MediaSession
+    private var mediaSession: MediaSession? = null
     private var wasPip: Boolean = false
+
+    // Set while the screen is off and playback deliberately carries on (see
+    // isBackgroundPlaybackEnabled) - the lifecycle callbacks below then leave the player and its
+    // session alone instead of pausing/releasing them as they normally would.
+    private var playingInBackground: Boolean = false
+
+    /** Whether playback should carry on once the screen turns off. */
+    protected open fun isBackgroundPlaybackEnabled(): Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +37,32 @@ abstract class BasePlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
 
-        mediaSession = MediaSession.Builder(this, viewModel.player).build()
+        if (playingInBackground) {
+            // Screen's back on. Whatever the playback state is now (it may have been paused from
+            // the lock screen meanwhile) is what onResume should restore. Cleared here rather than
+            // in onResume, since a PiP window comes back with onStart only.
+            viewModel.playWhenReady = viewModel.player.playWhenReady
+            playingInBackground = false
+        }
+        // Still alive from before the screen went off - nothing to rebuild.
+        if (mediaSession != null) return
+
+        val session =
+            MediaSession.Builder(this, viewModel.player)
+                // Tapping the playback notification returns to this (singleTask) activity.
+                .setSessionActivity(
+                    PendingIntent.getActivity(
+                        this,
+                        0,
+                        Intent(this, javaClass),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                )
+                .build()
+        mediaSession = session
+        // Started here, while the activity is in the foreground - a foreground service can't
+        // be started from the background, which is exactly where we'd be once the screen is off.
+        if (isBackgroundPlaybackEnabled()) BackgroundPlaybackService.start(this, session)
     }
 
     override fun onResume() {
@@ -43,23 +79,52 @@ abstract class BasePlayerActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
 
-        if (isInPictureInPictureMode) {
-            wasPip = true
-        } else {
-            viewModel.playWhenReady = viewModel.player.playWhenReady
-            viewModel.player.playWhenReady = false
-            viewModel.updatePlaybackProgress()
+        when {
+            isInPictureInPictureMode -> wasPip = true
+            shouldKeepPlaying() -> {
+                playingInBackground = true
+                viewModel.updatePlaybackProgress()
+            }
+            else -> {
+                viewModel.playWhenReady = viewModel.player.playWhenReady
+                viewModel.player.playWhenReady = false
+                viewModel.updatePlaybackProgress()
+            }
         }
     }
 
     override fun onStop() {
         super.onStop()
 
-        mediaSession.release()
+        // The screen turning off while in PiP lands here without a preceding onPause - same
+        // decision as there, so it keeps playing rather than closing the PiP window.
+        if (wasPip && shouldKeepPlaying()) playingInBackground = true
+        if (playingInBackground) return
+
+        releaseSession()
 
         if (wasPip) {
             finish()
         }
+    }
+
+    override fun onDestroy() {
+        releaseSession()
+        super.onDestroy()
+    }
+
+    /**
+     * Screen just turned off (not Home/back/another app) while playing, and the user wants that.
+     */
+    private fun shouldKeepPlaying(): Boolean =
+        isBackgroundPlaybackEnabled() &&
+            viewModel.player.isPlaying &&
+            !(getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+
+    private fun releaseSession() {
+        BackgroundPlaybackService.stop(this)
+        mediaSession?.release()
+        mediaSession = null
     }
 
     protected fun hideSystemUI() {

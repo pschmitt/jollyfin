@@ -11,10 +11,11 @@ import kotlinx.serialization.json.put
 
 /**
  * Bridges the local control API's `GET`/`PATCH /settings/downloads` to the real, typed
- * [AppPreferences] download settings. [AppPreferences.getValue]/[AppPreferences.setValue] are
- * `inline reified`, so they can't be called generically from a string field name at runtime - each
- * [Field] entry below pins the concrete type at its own call site instead, the same way any other
- * direct caller of `getValue`/`setValue` in this codebase already does.
+ * [AppPreferences] download settings (plus a couple of player toggles).
+ * [AppPreferences.getValue]/[AppPreferences.setValue] are `inline reified`, so they can't be called
+ * generically from a string field name at runtime - each [Field] entry below pins the concrete type
+ * at its own call site instead, the same way any other direct caller of `getValue`/`setValue` in
+ * this codebase already does.
  */
 object DownloadSettingsBridge {
     private data class Field(
@@ -74,6 +75,18 @@ object DownloadSettingsBridge {
                 "maxDownloadSizeGb",
                 { JsonPrimitive(it.getValue(it.maxDownloadSizeGb)) },
                 { ap, v -> ap.setValue(ap.maxDownloadSizeGb, v.jsonPrimitiveInt()) },
+            ),
+            // Not download settings, but the CLI's `settings` command is this endpoint's only
+            // consumer and these are the player toggles worth scripting.
+            Field(
+                "playerPipOnHome",
+                { JsonPrimitive(it.getValue(it.playerPipGesture)) },
+                { ap, v -> ap.setValue(ap.playerPipGesture, v.jsonPrimitiveBoolean()) },
+            ),
+            Field(
+                "playerBackgroundPlayback",
+                { JsonPrimitive(it.getValue(it.playerBackgroundPlayback)) },
+                { ap, v -> ap.setValue(ap.playerBackgroundPlayback, v.jsonPrimitiveBoolean()) },
             ),
         )
 

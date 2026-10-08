@@ -64,7 +64,7 @@ class DownloadSettingsBridgeTest {
     }
 
     @Test
-    fun `toJson after applyPatch reflects every one of the 10 download fields round-tripping`() {
+    fun `toJson after applyPatch reflects every one of the 12 fields round-tripping`() {
         val patch = buildJsonObject {
             put("downloadOverMobileData", true)
             put("downloadWhenRoaming", true)
@@ -76,6 +76,8 @@ class DownloadSettingsBridgeTest {
             put("pauseDownloadsOnBatterySaver", false)
             put("maxDownloadSizeEnabled", true)
             put("maxDownloadSizeGb", 50)
+            put("playerPipOnHome", false)
+            put("playerBackgroundPlayback", false)
         }
 
         DownloadSettingsBridge.applyPatch(appPreferences, patch)

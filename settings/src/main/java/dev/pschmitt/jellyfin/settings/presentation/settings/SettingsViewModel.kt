@@ -778,6 +778,23 @@ constructor(
                                                 )
                                             ),
                                     ),
+                                    PreferenceGroup(
+                                        nameStringResource = R.string.background_playback,
+                                        preferences =
+                                            listOf(
+                                                PreferenceSwitch(
+                                                    nameStringResource =
+                                                        R.string.pref_player_background_playback,
+                                                    descriptionStringRes =
+                                                        R.string
+                                                            .pref_player_background_playback_summary,
+                                                    iconDrawableId = R.drawable.ic_play,
+                                                    supportedDeviceTypes = listOf(DeviceType.PHONE),
+                                                    backendPreference =
+                                                        appPreferences.playerBackgroundPlayback,
+                                                )
+                                            ),
+                                    ),
                                 ),
                         )
                     ),

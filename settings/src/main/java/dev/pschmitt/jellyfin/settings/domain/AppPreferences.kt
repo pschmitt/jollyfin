@@ -95,6 +95,9 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     // explicitly switched it off keeps that.
     val playerPipGesture = Preference("pref_player_picture_in_picture_gesture", true)
 
+    // Player - keep playing (audio, with a media notification) when the screen turns off
+    val playerBackgroundPlayback = Preference("pref_player_background_playback", true)
+
     // Downloads
     val downloadOverMobileData = Preference("pref_downloads_mobile_data", false)
     val downloadWhenRoaming = Preference("pref_downloads_roaming", false)

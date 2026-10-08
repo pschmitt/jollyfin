@@ -332,11 +332,17 @@ class PlayerActivity : BasePlayerActivity() {
         hideSystemUI()
     }
 
+    override fun isBackgroundPlaybackEnabled(): Boolean =
+        appPreferences.getValue(appPreferences.playerBackgroundPlayback)
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // No item at all: this is the playback notification's "return to player" intent (see
+        // BasePlayerActivity.onStart) - just come back to what's already playing.
+        val itemIdString = intent.extras?.getString("itemId") ?: return
         setIntent(intent)
 
-        val itemId = UUID.fromString(intent.extras!!.getString("itemId"))
+        val itemId = UUID.fromString(itemIdString)
         val itemKind = intent.extras!!.getString("itemKind")
         val startFromBeginning = intent.extras!!.getBoolean("startFromBeginning")
 

@@ -72,8 +72,8 @@ Configure the real JollyFin app running on this device, from Termux.
 Enable it in the app first: Settings > Downloads > Local CLI access.
 
   token set TOKEN                            Save the token copied from Settings
-  settings get                               Show the app's real download settings
-  settings set KEY=VALUE [KEY=VALUE...]      Change the app's real download settings
+  settings get                               Show the app's real download/player settings
+  settings set KEY=VALUE [KEY=VALUE...]      Change the app's real download/player settings
                                               (alias: cfg)
   library list                               List the Jellyfin libraries (Movies, TV Shows, ...)
                                               (alias: lib; list alias: ls)

@@ -2427,3 +2427,26 @@ Pressing Home mid-playback just backgrounded the player. Auto-PiP on Home alread
       moves the player into a pinned PiP window, still playing.
 
 Status: **done** (2026-10-08).
+
+## JF-99: Keep playing with the screen off (background playback)
+
+Turning the screen off mid-playback paused the video (`BasePlayerActivity.onPause`), and the
+backgrounded app would get frozen soon after anyway. Like YouTube's background play, it should
+keep going and be controllable from the notification/lock screen.
+
+- [x] New `playerBackgroundPlayback` preference (default on), Settings > Player > Background
+      playback; also exposed through the local control API/CLI (`settings get/set
+      playerBackgroundPlayback=...`, alongside `playerPipOnHome`).
+- [x] `BackgroundPlaybackService` (media3 `MediaSessionService`, `mediaPlayback` FGS) hosts the
+      activity's existing session - started in `onStart` while foreground, since an FGS can't be
+      started from the background. Media3 posts the playback notification / lock-screen controls.
+- [x] `BasePlayerActivity` skips the pause/release when the screen is off (`!isInteractive`) and
+      playback is running, including from PiP (which used to `finish()` on any `onStop`).
+- [x] Notification tap returns to the player: `onNewIntent` without an `itemId` no longer crashes.
+- [x] Verified on the Mi Pad 4 (Android 16): screen off for 50s, still `PLAYING` and the position
+      advanced in real time under a foreground `mediaPlayback` service; lock screen shows media
+      controls and pausing from there works.
+- [ ] Not verified: returning into the player after unlocking (couldn't unlock remotely), and the
+      CLI round trip from actual Termux.
+
+Status: done (2026-10-08), two follow-up checks open.
