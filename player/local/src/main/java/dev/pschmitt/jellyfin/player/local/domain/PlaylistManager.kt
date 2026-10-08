@@ -259,8 +259,22 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
             externalSubtitles = externalSubtitles,
             chapters = chapters.toPlayerChapters(),
             trickplayInfo = trickplayInfo,
+            seriesName = if (this is JollyfinEpisode) seriesName else null,
+            artworkUri = notificationArtwork()?.toString(),
         )
     }
+
+    /**
+     * Landscape artwork for the playback notification - the system media player renders it as a
+     * wide background, so an episode's own still / a movie's backdrop fit far better than a
+     * portrait poster. Falls back to whatever else exists.
+     */
+    private fun JollyfinItem.notificationArtwork() =
+        when (this) {
+            is JollyfinEpisode -> images.primary ?: images.showBackdrop ?: images.showPrimary
+            is JollyfinMovie -> images.backdrop ?: images.primary
+            else -> images.primary ?: images.backdrop
+        }
 
     private fun List<JollyfinChapter>.toPlayerChapters(): List<PlayerChapter> {
         return this.map { chapter ->

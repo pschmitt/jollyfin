@@ -3,6 +3,7 @@ package dev.pschmitt.jellyfin.player.local.presentation
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -28,6 +29,7 @@ import dev.pschmitt.jellyfin.player.local.mpv.MPVPlayer
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.settings.domain.Constants
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
@@ -239,11 +241,48 @@ constructor(
             MediaItem.Builder()
                 .setMediaId(itemId.toString())
                 .setUri(streamUrl)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(name).build())
+                .setMediaMetadata(toMediaMetadata())
                 .setSubtitleConfigurations(mediaSubtitles)
                 .build()
 
         return mediaItem
+    }
+
+    /**
+     * What the playback notification / lock screen shows: the episode title, "Show · S3:E6" (or
+     * nothing extra for a movie) underneath, and landscape artwork as the card's background.
+     */
+    private fun PlayerItem.toMediaMetadata(): MediaMetadata {
+        val episodeLabel =
+            if (parentIndexNumber != null && indexNumber != null) {
+                "S$parentIndexNumber:E$indexNumber"
+            } else {
+                null
+            }
+        val subtitle = listOfNotNull(seriesName, episodeLabel).joinToString(" · ").ifEmpty { null }
+        return MediaMetadata.Builder()
+            .setTitle(name)
+            .setDisplayTitle(name)
+            .setArtist(subtitle)
+            .setSubtitle(subtitle)
+            .setAlbumTitle(seriesName)
+            .setArtworkUri(artworkUri?.let(::resolveArtworkUri))
+            .setMediaType(
+                if (seriesName != null) {
+                    MediaMetadata.MEDIA_TYPE_TV_SHOW
+                } else {
+                    MediaMetadata.MEDIA_TYPE_MOVIE
+                }
+            )
+            .build()
+    }
+
+    // A downloaded item's artwork is stored as a scheme-less path relative to filesDir (see
+    // ImagesDownloaderWorker); media3's bitmap loader needs a real file:// URI for it.
+    private fun resolveArtworkUri(uri: String): Uri {
+        val parsed = Uri.parse(uri)
+        if (parsed.scheme != null) return parsed
+        return Uri.fromFile(File(application.filesDir, parsed.path.orEmpty()))
     }
 
     @OptIn(DelicateCoroutinesApi::class)

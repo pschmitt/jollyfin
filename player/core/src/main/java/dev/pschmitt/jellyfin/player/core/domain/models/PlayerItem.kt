@@ -17,4 +17,8 @@ data class PlayerItem(
     val externalSubtitles: List<ExternalSubtitle> = emptyList(),
     val chapters: List<PlayerChapter> = emptyList(),
     val trickplayInfo: TrickplayInfo? = null,
+    // For the playback notification/lock screen (see PlayerViewModel.toMediaItem).
+    val seriesName: String? = null,
+    // Server URL, or a scheme-less path relative to filesDir for a downloaded item's local copy.
+    val artworkUri: String? = null,
 ) : Parcelable

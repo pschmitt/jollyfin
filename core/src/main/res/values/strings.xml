@@ -471,6 +471,10 @@
     <string name="cancel_download_partial_message">The partially downloaded file of %1$s will be removed from this device.</string>
     <string name="keep_downloading">Keep downloading</string>
     <string name="downloads_select_episodes">Select episodes</string>
+    <plurals name="downloads_episode_count">
+        <item quantity="one">%1$d episode · %2$s</item>
+        <item quantity="other">%1$d episodes · %2$s</item>
+    </plurals>
     <plurals name="downloads_selected_count">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>

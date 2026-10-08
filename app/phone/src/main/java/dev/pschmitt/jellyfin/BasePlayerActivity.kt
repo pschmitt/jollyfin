@@ -11,7 +11,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
+import androidx.media3.common.Player
+import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
+import dev.pschmitt.jellyfin.player.local.R as PlayerR
 import dev.pschmitt.jellyfin.player.local.presentation.PlayerViewModel
 
 abstract class BasePlayerActivity : AppCompatActivity() {
@@ -56,6 +59,22 @@ abstract class BasePlayerActivity : AppCompatActivity() {
                         0,
                         Intent(this, javaClass),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                )
+                // Rewind/fast-forward next to play/pause and prev/next - for video, jumping back
+                // a few seconds is what you reach for most from the lock screen.
+                .setMediaButtonPreferences(
+                    listOf(
+                        CommandButton.Builder(CommandButton.ICON_REWIND)
+                            .setDisplayName(getString(PlayerR.string.player_controls_rewind))
+                            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                            .setSlots(CommandButton.SLOT_OVERFLOW)
+                            .build(),
+                        CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+                            .setDisplayName(getString(PlayerR.string.player_controls_fast_forward))
+                            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                            .setSlots(CommandButton.SLOT_OVERFLOW)
+                            .build(),
                     )
                 )
                 .build()

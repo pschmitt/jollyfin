@@ -481,7 +481,10 @@ private fun DownloadsScreenLayout(
         }
 
     var moviesCollapsed by remember { mutableStateOf(false) }
-    var collapsedGroupIds by remember { mutableStateOf(emptySet<UUID>()) }
+    // Shows start collapsed (the header already says how many episodes/how much space) - a long
+    // list of episodes for every downloaded show buried everything below it. Tracking the
+    // *expanded* ones means newly appearing shows are collapsed too.
+    var expandedGroupIds by remember { mutableStateOf(emptySet<UUID>()) }
     var pvrQueueCollapsed by remember { mutableStateOf(false) }
 
     // Reset whenever there's no active batch, so the next delete shows the card fresh even if
@@ -880,7 +883,7 @@ private fun DownloadsScreenLayout(
                                 } == true
                             }
                         val hasMigratingEpisode = group.episodes.any { it.id in state.migratingIds }
-                        val groupCollapsed = group.seriesId in collapsedGroupIds
+                        val groupCollapsed = group.seriesId !in expandedGroupIds
                         stickyHeader {
                             ShowGroupHeader(
                                 group = group,
@@ -893,9 +896,9 @@ private fun DownloadsScreenLayout(
                                 onForceClick = { onForceGroup(group.episodes.map { it.id }) },
                                 collapsed = groupCollapsed,
                                 onToggleCollapsed = {
-                                    collapsedGroupIds =
-                                        if (groupCollapsed) collapsedGroupIds - group.seriesId
-                                        else collapsedGroupIds + group.seriesId
+                                    expandedGroupIds =
+                                        if (groupCollapsed) expandedGroupIds + group.seriesId
+                                        else expandedGroupIds - group.seriesId
                                 },
                                 swipeEnabled =
                                     !selectionMode && !hasActiveDownload && !hasMigratingEpisode,
@@ -1503,7 +1506,13 @@ private fun ShowGroupHeader(
                                 Spacer(modifier = Modifier.width(4.dp))
                             }
                             Text(
-                                text = formatBinaryFileSize(downloadedSizeBytes),
+                                text =
+                                    pluralStringResource(
+                                        CoreR.plurals.downloads_episode_count,
+                                        group.episodes.size,
+                                        group.episodes.size,
+                                        formatBinaryFileSize(downloadedSizeBytes),
+                                    ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                             )

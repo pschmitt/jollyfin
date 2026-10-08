@@ -2,8 +2,10 @@ package dev.pschmitt.jellyfin
 
 import android.content.Context
 import android.content.Intent
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import dev.pschmitt.jellyfin.core.R as CoreR
 
 /**
  * Hosts the player's [MediaSession] while [PlayerActivity] is open, so playback can keep going with
@@ -20,6 +22,12 @@ class BackgroundPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // The app's own (monochrome) logo in the status bar instead of media3's generic one.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply {
+                setSmallIcon(CoreR.drawable.ic_launcher_foreground)
+            }
+        )
         session?.let { addSession(it) }
     }
 
