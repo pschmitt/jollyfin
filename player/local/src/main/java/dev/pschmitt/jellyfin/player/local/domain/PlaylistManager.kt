@@ -14,19 +14,32 @@ import dev.pschmitt.jellyfin.player.core.domain.models.PlayerChapter
 import dev.pschmitt.jellyfin.player.core.domain.models.PlayerItem
 import dev.pschmitt.jellyfin.player.core.domain.models.TrickplayInfo
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
+import dev.pschmitt.jellyfin.repository.JellyfinRepositoryOfflineImpl
+import dev.pschmitt.jellyfin.repository.getDownloadedEpisodeOrNull
+import dev.pschmitt.jellyfin.repository.getDownloadedMovieOrNull
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.MediaStreamType
 import timber.log.Timber
 
-class PlaylistManager @Inject internal constructor(private val repository: JellyfinRepository) {
+class PlaylistManager
+@Inject
+internal constructor(
+    private val repository: JellyfinRepository,
+    private val offlineRepository: JellyfinRepositoryOfflineImpl,
+) {
     private var startItem: JollyfinItem? = null
     private var items: List<JollyfinItem> = emptyList()
     private val playerItems: MutableList<PlayerItem> = mutableListOf()
     var currentItemIndex: Int = 0
+
+    private companion object {
+        const val SEASON_FETCH_TIMEOUT_MS = 3_000L
+    }
 
     suspend fun getInitialItem(
         itemId: UUID,
@@ -39,7 +52,10 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
         val initialItem =
             when (itemKind) {
                 BaseItemKind.MOVIE -> {
-                    val movie = repository.getMovie(itemId)
+                    // Downloaded: straight from the local DB, no server round trip needed.
+                    val movie =
+                        offlineRepository.getDownloadedMovieOrNull(itemId)
+                            ?: repository.getMovie(itemId)
 
                     items = listOf(movie)
                     movie
@@ -97,16 +113,33 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
                     episode
                 }
                 BaseItemKind.EPISODE -> {
-                    val episode = repository.getEpisode(itemId)
+                    val localEpisode = offlineRepository.getDownloadedEpisodeOrNull(itemId)
+                    val episode = localEpisode ?: repository.getEpisode(itemId)
 
-                    val episodes =
-                        repository
-                            .getEpisodes(
-                                seriesId = episode.seriesId,
-                                seasonId = episode.seasonId,
-                                fields = listOf(ItemFields.CHAPTERS, ItemFields.TRICKPLAY),
-                            )
-                            .filter { !it.missing }
+                    val fetchSeason: suspend () -> List<JollyfinEpisode> = {
+                        repository.getEpisodes(
+                            seriesId = episode.seriesId,
+                            seasonId = episode.seasonId,
+                            fields = listOf(ItemFields.CHAPTERS, ItemFields.TRICKPLAY),
+                        )
+                    }
+                    // The season only feeds next/previous - for a downloaded episode, give the
+                    // server a short window and otherwise settle for the downloaded episodes,
+                    // rather than holding up playback of a file that's already on disk.
+                    val seasonEpisodes =
+                        if (localEpisode != null) {
+                            runCatching {
+                                withTimeoutOrNull(SEASON_FETCH_TIMEOUT_MS) { fetchSeason() }
+                            }
+                                .getOrNull()
+                                ?: offlineRepository.getEpisodes(
+                                    seriesId = episode.seriesId,
+                                    seasonId = episode.seasonId,
+                                )
+                        } else {
+                            fetchSeason()
+                        }
+                    val episodes = seasonEpisodes.filter { !it.missing }
 
                     items = episodes
                     episode
@@ -208,7 +241,18 @@ class PlaylistManager @Inject internal constructor(private val repository: Jelly
     ): PlayerItem {
         Timber.d("Converting JollyfinItem ${this.id} to PlayerItem")
 
-        val mediaSources = repository.getMediaSources(id, true)
+        // A downloaded item plays its local file anyway (selectPlayableMediaSource prefers it), so
+        // skip the server's PlaybackInfo round trip - unless a specific source was picked, since
+        // that index refers to the combined server+local list.
+        val localSources =
+            if (mediaSourceIndex == null) {
+                offlineRepository.getMediaSources(id, true).filter {
+                    it.type == JollyfinSourceType.LOCAL
+                }
+            } else {
+                emptyList()
+            }
+        val mediaSources = localSources.ifEmpty { repository.getMediaSources(id, true) }
         val mediaSource = selectPlayableMediaSource(mediaSources, mediaSourceIndex)
         val externalSubtitles =
             mediaSource.mediaStreams

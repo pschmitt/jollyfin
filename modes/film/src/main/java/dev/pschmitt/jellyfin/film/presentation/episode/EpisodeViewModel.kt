@@ -27,9 +27,11 @@ import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.AutoDownloadRuleRepository
 import dev.pschmitt.jellyfin.repository.ExistingAutoDownloadScope
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
+import dev.pschmitt.jellyfin.repository.JellyfinRepositoryOfflineImpl
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
 import dev.pschmitt.jellyfin.repository.RemoteConfigRepository
 import dev.pschmitt.jellyfin.repository.SonarrSearchRepository
+import dev.pschmitt.jellyfin.repository.getDownloadedEpisodeOrNull
 import dev.pschmitt.jellyfin.repository.toExistingScope
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.utils.AutoDownloadRuleEvaluator
@@ -56,6 +58,7 @@ class EpisodeViewModel
 @Inject
 constructor(
     private val repository: JellyfinRepository,
+    private val offlineRepository: JellyfinRepositoryOfflineImpl,
     private val appPreferences: AppPreferences,
     private val videoMetadataParser: VideoMetadataParser,
     private val database: ServerDatabaseDao,
@@ -120,6 +123,29 @@ constructor(
         observeQueueStatus(episodeId)
         viewModelScope.launch {
             _state.emit(_state.value.copy(isRefreshing = true))
+            // Downloaded: show the local copy right away, then refresh from the server quietly -
+            // on a bad connection the sequential server calls below can take ages, and none of
+            // them is needed to show or play something that's already on disk.
+            val localEpisode = offlineRepository.getDownloadedEpisodeOrNull(episodeId)
+            if (localEpisode != null) {
+                _state.emit(
+                    _state.value.copy(
+                        episode = localEpisode,
+                        videoMetadata = videoMetadataParser.parse(localEpisode.sources.first()),
+                        actors = getActors(localEpisode),
+                        dateFormat = appPreferences.getValue(appPreferences.dateFormat),
+                        existingScope = getExistingScope(localEpisode.seriesId),
+                        sonarrConfigured = pvrConfiguration.isSonarrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.RADARR },
+                        autoDeleteWatchedEnabled =
+                            appPreferences.getValue(appPreferences.autoDeleteWatched),
+                        autoDeleteWatchedHours =
+                            appPreferences.getValue(appPreferences.autoDeleteWatchedHours),
+                        isRefreshing = false,
+                    )
+                )
+            }
             try {
                 val episode = repository.getEpisode(episodeId)
                 val videoMetadata = videoMetadataParser.parse(episode.sources.first())
@@ -150,7 +176,13 @@ constructor(
                     )
                 )
             } catch (e: Exception) {
-                _state.emit(_state.value.copy(error = e, isRefreshing = false))
+                // Server unreachable but the local copy is already showing - that's fine.
+                if (localEpisode != null) {
+                    Timber.w(e, "Server refresh failed, staying on the downloaded copy")
+                    _state.emit(_state.value.copy(isRefreshing = false))
+                } else {
+                    _state.emit(_state.value.copy(error = e, isRefreshing = false))
+                }
             }
         }
     }

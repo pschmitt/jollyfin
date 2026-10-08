@@ -19,9 +19,11 @@ import dev.pschmitt.jellyfin.models.SeerrMediaType
 import dev.pschmitt.jellyfin.pvr.PvrConfiguration
 import dev.pschmitt.jellyfin.pvr.PvrWebUiLinks
 import dev.pschmitt.jellyfin.repository.JellyfinRepository
+import dev.pschmitt.jellyfin.repository.JellyfinRepositoryOfflineImpl
 import dev.pschmitt.jellyfin.repository.QueueStatusRepository
 import dev.pschmitt.jellyfin.repository.RadarrSearchRepository
 import dev.pschmitt.jellyfin.repository.SeerrRepository
+import dev.pschmitt.jellyfin.repository.getDownloadedMovieOrNull
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.utils.Downloader
 import dev.pschmitt.jellyfin.utils.clearDownloads
@@ -44,6 +46,7 @@ class MovieViewModel
 @Inject
 constructor(
     private val repository: JellyfinRepository,
+    private val offlineRepository: JellyfinRepositoryOfflineImpl,
     private val videoMetadataParser: VideoMetadataParser,
     private val appPreferences: AppPreferences,
     private val radarrSearchRepository: RadarrSearchRepository,
@@ -93,6 +96,26 @@ constructor(
         observeQueueStatus(movieId)
         viewModelScope.launch {
             _state.emit(_state.value.copy(isRefreshing = true))
+            // Downloaded: local copy first, server refresh after (see
+            // EpisodeViewModel.loadEpisode).
+            val localMovie = offlineRepository.getDownloadedMovieOrNull(movieId)
+            if (localMovie != null) {
+                _state.emit(
+                    _state.value.copy(
+                        movie = localMovie,
+                        videoMetadata = videoMetadataParser.parse(localMovie.sources.first()),
+                        actors = getActors(localMovie),
+                        director = getDirector(localMovie),
+                        writers = getWriters(localMovie),
+                        dateFormat = appPreferences.getValue(appPreferences.dateFormat),
+                        radarrConfigured = pvrConfiguration.isRadarrConfigured(),
+                        seerrConfigured = pvrConfiguration.isSeerrConfigured(),
+                        webUiServices =
+                            pvrWebUiLinks.availableServices().filter { it != PvrService.SONARR },
+                        isRefreshing = false,
+                    )
+                )
+            }
             try {
                 val movie = repository.getMovie(movieId)
                 val videoMetadata = videoMetadataParser.parse(movie.sources.first())
@@ -118,7 +141,12 @@ constructor(
                     )
                 )
             } catch (e: Exception) {
-                _state.emit(_state.value.copy(error = e, isRefreshing = false))
+                if (localMovie != null) {
+                    Timber.w(e, "Server refresh failed, staying on the downloaded copy")
+                    _state.emit(_state.value.copy(isRefreshing = false))
+                } else {
+                    _state.emit(_state.value.copy(error = e, isRefreshing = false))
+                }
             }
         }
     }
