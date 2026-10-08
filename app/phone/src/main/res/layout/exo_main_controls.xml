@@ -246,6 +246,19 @@
                 android:textColor="@android:color/white"
                 android:textSize="14sp"
                 tools:text="24:21" />
+
+            <!-- Wall-clock time playback will finish at - set from PlayerActivity. -->
+            <TextView
+                android:id="@+id/ends_at"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:alpha="0.7"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:visibility="gone"
+                tools:text="Ends at 21:43"
+                tools:visibility="visible" />
         </LinearLayout>
 
 

@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.text.format.DateFormat
 import android.util.Rational
 import android.view.SurfaceView
 import android.view.View
@@ -35,6 +36,7 @@ import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
 import dagger.hilt.android.AndroidEntryPoint
 import dev.pschmitt.jellyfin.databinding.ActivityPlayerBinding
+import dev.pschmitt.jellyfin.player.local.R as PlayerR
 import dev.pschmitt.jellyfin.player.local.presentation.PlayerEvents
 import dev.pschmitt.jellyfin.player.local.presentation.PlayerViewModel
 import dev.pschmitt.jellyfin.presentation.player.SpeedSelectionDialogFragment
@@ -42,6 +44,7 @@ import dev.pschmitt.jellyfin.presentation.player.TrackSelectionDialogFragment
 import dev.pschmitt.jellyfin.settings.domain.AppPreferences
 import dev.pschmitt.jellyfin.utils.PlayerGestureHelper
 import dev.pschmitt.jellyfin.utils.PreviewScrubListener
+import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -313,6 +316,13 @@ class PlayerActivity : BasePlayerActivity() {
 
         pipButton.setOnClickListener { pictureInPicture() }
 
+        // "Ends at 21:43": refreshed on the controller's own progress ticks (only while it's
+        // visible, which is the only time it's shown anyway).
+        val endsAtTextView = binding.playerView.findViewById<TextView>(R.id.ends_at)
+        binding.playerView
+            .findViewById<PlayerControlView>(R.id.exo_controller)
+            .setProgressUpdateListener { position, _ -> updateEndsAt(endsAtTextView, position) }
+
         // Set marker color
         val timeBar = binding.playerView.findViewById<DefaultTimeBar>(R.id.exo_progress)
         timeBar.setAdMarkerColor(Color.WHITE)
@@ -330,6 +340,22 @@ class PlayerActivity : BasePlayerActivity() {
             startFromBeginning = startFromBeginning,
         )
         hideSystemUI()
+    }
+
+    private fun updateEndsAt(textView: TextView, position: Long) {
+        val player = viewModel.player
+        val duration = player.duration
+        if (duration == C.TIME_UNSET || duration <= 0) {
+            textView.isVisible = false
+            return
+        }
+        // Remaining media time in wall-clock terms - at 1.5x an hour of video takes 40 minutes.
+        val speed = player.playbackParameters.speed.takeIf { it > 0f } ?: 1f
+        val remainingMs = ((duration - position).coerceAtLeast(0L) / speed).toLong()
+        val endsAt = Date(System.currentTimeMillis() + remainingMs)
+        textView.text =
+            getString(PlayerR.string.player_ends_at, DateFormat.getTimeFormat(this).format(endsAt))
+        textView.isVisible = true
     }
 
     override fun isBackgroundPlaybackEnabled(): Boolean =

@@ -2455,3 +2455,29 @@ keep going and be controllable from the notification/lock screen.
       the failed `Play Store Release` job for v2.16.1 and push/tag 2.17.0.
 
 Status: done (2026-10-08), two follow-up checks open; Play release blocked on the declaration.
+
+## JF-100: Richer playback notification; Downloads shows collapsed by default
+
+- [x] Notification / lock screen: show name + SxEy under the title, landscape artwork (episode
+      still / movie backdrop, local copy when downloaded), app icon, rewind / fast-forward buttons.
+- [x] Downloads: show groups start collapsed; header shows the episode count.
+- [ ] Look at the notification on a device (the Mi Pad was locked, so playback couldn't be started).
+
+## JF-101: Downloaded items open and play without waiting on the server
+
+On a bad connection (train), opening a downloaded episode took ages: the online repository made
+several sequential server calls first, and playback fetched PlaybackInfo even for a local file.
+
+- [x] Episode/Movie screens render the downloaded copy from the DB immediately, then refresh
+      from the server in the background; a failed refresh keeps the local data, no error.
+- [x] `PlaylistManager`: downloaded items and their local source come straight from the DB (no
+      PlaybackInfo call); the season list for next/previous gets 3s on the server, then falls
+      back to the downloaded episodes.
+- [ ] Try it for real on a flaky connection.
+
+## JF-102: "Ends at" time in the player
+
+- [x] Next to position/duration, "Ends at 21:43" - wall clock, respects playback speed and the
+      system 12/24h setting; updated on the controller's progress ticks.
+
+Status (JF-100..102): done (2026-10-08) apart from the open on-device checks.

@@ -6,6 +6,7 @@
     <string name="external">External</string>
     <string name="none">None</string>
     <string name="player_controls_picture_in_picture">Enter picture-in-picture</string>
+    <string name="player_ends_at">Ends at %1$s</string>
     <string name="player_controls_lock">Locks the player</string>
     <string name="player_controls_skip_back">Skip back</string>
     <string name="player_controls_play_pause">Play pause</string>
