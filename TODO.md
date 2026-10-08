@@ -2416,3 +2416,14 @@ download was only reachable through an invisible swipe, and cancelling an in-pro
       delete confirmations (both dismissed), overflow Select -> selection title.
 
 Status: **done** (2026-10-08).
+
+## JF-98: Enter picture-in-picture on Home by default
+
+Pressing Home mid-playback just backgrounded the player. Auto-PiP on Home already existed
+(Settings > Player > Picture-in-picture home gesture, `playerPipGesture`) but defaulted to off.
+
+- [x] `playerPipGesture` now defaults to on; users who explicitly turned it off keep that.
+- [x] Verified on the Mi Pad 4 (Android 16): playing a downloaded episode and pressing Home
+      moves the player into a pinned PiP window, still playing.
+
+Status: **done** (2026-10-08).

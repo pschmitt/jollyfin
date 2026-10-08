@@ -90,8 +90,10 @@ class AppPreferences @Inject constructor(val sharedPreferences: SharedPreference
     // Player - trickplay
     val playerTrickplay = Preference("pref_player_trickplay", true)
 
-    // Player - PiP
-    val playerPipGesture = Preference("pref_player_picture_in_picture_gesture", false)
+    // Player - PiP. On by default: pressing Home mid-playback shrinks the video into a PiP window
+    // instead of just backgrounding (and pausing) it. Only the unset default changes - anyone who
+    // explicitly switched it off keeps that.
+    val playerPipGesture = Preference("pref_player_picture_in_picture_gesture", true)
 
     // Downloads
     val downloadOverMobileData = Preference("pref_downloads_mobile_data", false)
