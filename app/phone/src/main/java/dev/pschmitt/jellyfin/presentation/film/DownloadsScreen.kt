@@ -69,6 +69,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -187,6 +188,9 @@ fun DownloadsScreen(
     var pendingDelete by remember { mutableStateOf<PendingDownloadDelete?>(null) }
     var pendingGroupDelete by remember { mutableStateOf<DownloadShowGroup?>(null) }
     var pendingPvrRemove by remember { mutableStateOf<Pair<PvrQueueUiItem, PvrSource>?>(null) }
+    // Cancelling an in-progress download throws away whatever's already on disk (unlike pause),
+    // so it goes through a confirmation just like deleting a finished one does.
+    var pendingCancel by remember { mutableStateOf<Pair<UUID, String>?>(null) }
 
     val allItems = state.movies + state.showGroups.flatMap { it.episodes }
     val totalSizeBytes =
@@ -230,6 +234,7 @@ fun DownloadsScreen(
         onToggleSelectAll = viewModel::toggleSelectAll,
         onToggleGroupSelection = viewModel::setGroupSelected,
         onDownloadAction = viewModel::onDownloadAction,
+        onCancelRequest = { id, title -> pendingCancel = id to title },
         onSwipeDeleteRequest = { id, title, path, sizeBytes ->
             pendingDelete = PendingDownloadDelete(id, title, path, sizeBytes)
         },
@@ -316,8 +321,13 @@ fun DownloadsScreen(
     }
 
     if (deleteSelectedDialogOpen) {
-        DeleteSelectedDownloadsDialog(
-            count = state.selectedIds.size,
+        DeleteDownloadsDialog(
+            title = stringResource(CoreR.string.delete_selected_downloads),
+            message =
+                stringResource(
+                    CoreR.string.delete_selected_downloads_message,
+                    state.selectedIds.size,
+                ),
             sizeBytes = selectedSizeBytes,
             onConfirm = {
                 viewModel.deleteSelected()
@@ -328,8 +338,10 @@ fun DownloadsScreen(
     }
 
     pendingDelete?.let { pending ->
-        DeleteSingleDownloadDialog(
-            title = pending.title,
+        DeleteDownloadsDialog(
+            title = stringResource(CoreR.string.delete_download),
+            itemTitle = pending.title,
+            message = stringResource(CoreR.string.delete_download_message),
             path = pending.path,
             sizeBytes = pending.sizeBytes,
             onConfirm = {
@@ -340,6 +352,17 @@ fun DownloadsScreen(
         )
     }
 
+    pendingCancel?.let { (id, title) ->
+        CancelDownloadDialog(
+            title = title,
+            onConfirm = {
+                viewModel.onDownloadAction(id, DownloadAction.Cancel)
+                pendingCancel = null
+            },
+            onDismiss = { pendingCancel = null },
+        )
+    }
+
     pendingGroupDelete?.let { group ->
         val groupSizeBytes =
             remember(group) {
@@ -347,9 +370,14 @@ fun DownloadsScreen(
                     it.sources.firstOrNull { s -> s.type == JollyfinSourceType.LOCAL }?.size ?: 0L
                 }
             }
-        DeleteShowDownloadsDialog(
-            seriesName = group.seriesName,
-            episodeCount = group.episodes.size,
+        DeleteDownloadsDialog(
+            title = stringResource(CoreR.string.clear_season_downloads),
+            message =
+                stringResource(
+                    CoreR.string.delete_show_downloads_message,
+                    group.episodes.size,
+                    group.seriesName,
+                ),
             sizeBytes = groupSizeBytes,
             onConfirm = {
                 viewModel.deleteItems(group.episodes.map { it.id })
@@ -380,6 +408,7 @@ private fun DownloadsScreenLayout(
     onToggleSelectAll: (Boolean) -> Unit = {},
     onToggleGroupSelection: (Set<UUID>, Boolean) -> Unit = { _, _ -> },
     onDownloadAction: (UUID, DownloadAction) -> Unit = { _, _ -> },
+    onCancelRequest: (UUID, String) -> Unit = { _, _ -> },
     onSwipeDeleteRequest: (UUID, String, String?, Long?) -> Unit = { _, _, _, _ -> },
     onSwipeDeleteGroupRequest: (DownloadShowGroup) -> Unit = {},
     onPauseAllClick: () -> Unit = {},
@@ -419,6 +448,14 @@ private fun DownloadsScreenLayout(
         }
     val allSelected = allIds.isNotEmpty() && state.selectedIds.containsAll(allIds)
     val selectionMode = state.selectedIds.isNotEmpty()
+    val selectedLocalSizeBytes =
+        remember(state.movies, state.showGroups, state.selectedIds) {
+            (state.movies + state.showGroups.flatMap { it.episodes })
+                .filter { it.id in state.selectedIds }
+                .sumOf {
+                    it.sources.firstOrNull { s -> s.type == JollyfinSourceType.LOCAL }?.size ?: 0L
+                }
+        }
     val pvrQueueKeys =
         remember(state.pvrQueueGroups) {
             state.pvrQueueGroups
@@ -486,11 +523,22 @@ private fun DownloadsScreenLayout(
         topBar = {
             TopAppBar(
                 title = {
-                    TopBarTitle(
-                        text = stringResource(CoreR.string.title_download),
-                        iconRes = CoreR.drawable.ic_download,
-                        iconTint = HeaderIconColors.Downloads,
-                    )
+                    // In selection mode the title answers "what am I about to act on" - how many
+                    // items and how much space - rather than repeating the screen's name.
+                    when {
+                        selectionMode ->
+                            SelectionTitle(
+                                count = state.selectedIds.size,
+                                sizeBytes = selectedLocalSizeBytes,
+                            )
+                        pvrSelectionMode -> SelectionTitle(count = state.selectedPvrQueueIds.size)
+                        else ->
+                            TopBarTitle(
+                                text = stringResource(CoreR.string.title_download),
+                                iconRes = CoreR.drawable.ic_download,
+                                iconTint = HeaderIconColors.Downloads,
+                            )
+                    }
                 },
                 navigationIcon = {
                     if (selectionMode || pvrSelectionMode) {
@@ -790,7 +838,13 @@ private fun DownloadsScreenLayout(
                                     onClick = { onItemClick(movie) },
                                     onLongClick = { onToggleSelection(movie.id) },
                                     onToggleSelection = { onToggleSelection(movie.id) },
-                                    onDownloadAction = { onDownloadAction(movie.id, it) },
+                                    onDownloadAction = {
+                                        if (it == DownloadAction.Cancel) {
+                                            onCancelRequest(movie.id, movie.name)
+                                        } else {
+                                            onDownloadAction(movie.id, it)
+                                        }
+                                    },
                                     onSwipeDeleteRequest = {
                                         val source =
                                             movie.sources.firstOrNull {
@@ -846,6 +900,7 @@ private fun DownloadsScreenLayout(
                                 swipeEnabled =
                                     !selectionMode && !hasActiveDownload && !hasMigratingEpisode,
                                 onSwipeDeleteRequest = { onSwipeDeleteGroupRequest(group) },
+                                onSelectClick = { onToggleGroupSelection(groupIds, true) },
                                 deviceStorages = state.deviceStorages,
                             )
                         }
@@ -867,7 +922,13 @@ private fun DownloadsScreenLayout(
                                 onClick = { onItemClick(episode) },
                                 onLongClick = { onToggleSelection(episode.id) },
                                 onToggleSelection = { onToggleSelection(episode.id) },
-                                onDownloadAction = { onDownloadAction(episode.id, it) },
+                                onDownloadAction = {
+                                    if (it == DownloadAction.Cancel) {
+                                        onCancelRequest(episode.id, episodeTitle)
+                                    } else {
+                                        onDownloadAction(episode.id, it)
+                                    }
+                                },
                                 onSwipeDeleteRequest = {
                                     val source =
                                         episode.sources.firstOrNull {
@@ -952,11 +1013,12 @@ private fun DownloadsEmptyState(onGoToHomeClick: () -> Unit, modifier: Modifier 
 @Composable
 private fun MaxDownloadSizeBanner(usedBytes: Long, capBytes: Long, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth().padding(bottom = MaterialTheme.spacings.default),
+        modifier =
+            modifier.fillMaxWidth().cardMargin().padding(bottom = MaterialTheme.spacings.medium),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.default),
+            modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -986,11 +1048,12 @@ private fun BrokenDownloadsBanner(
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier.fillMaxWidth().padding(bottom = MaterialTheme.spacings.default),
+        modifier =
+            modifier.fillMaxWidth().cardMargin().padding(bottom = MaterialTheme.spacings.medium),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.default),
+            modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacings.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -1032,15 +1095,15 @@ private fun DownloadsStorageSummaryCard(
     pvrStorage: PvrServiceDiskSpace?,
     modifier: Modifier = Modifier,
 ) {
-    // Edge-to-edge horizontally, matching every other Card in this list (SectionHeader,
-    // ShowGroupHeader) - this previously had an outer margin *in addition to* the inner Column
-    // padding below, making it visibly narrower than the show-title cards right above/below it in
-    // the same list. A bottom margin is still needed vertically though - without it this card
-    // sits flush against whatever's next in the list (the local downloads section, or the PVR
-    // queue), with no visual separation between two otherwise-unrelated cards.
-    Card(modifier = modifier.fillMaxWidth().padding(bottom = MaterialTheme.spacings.default)) {
+    // Same horizontal inset as every other Card in this list (see cardMargin) so they all line up
+    // with each other and with the plain rows' content. The bottom margin separates it from
+    // whatever's next in the list (the local downloads section, or the PVR queue).
+    Card(
+        modifier =
+            modifier.fillMaxWidth().cardMargin().padding(bottom = MaterialTheme.spacings.medium)
+    ) {
         Column(
-            modifier = Modifier.padding(MaterialTheme.spacings.default),
+            modifier = Modifier.padding(MaterialTheme.spacings.medium),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.default),
         ) {
             deviceStorages.forEach { device ->
@@ -1126,7 +1189,10 @@ private fun StorageUsageBar(
             else -> MaterialTheme.colorScheme.primary
         }
     val otherUsedColor = MaterialTheme.colorScheme.outline
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    // A translucent overlay rather than a fixed surface role - surfaceVariant is (near) identical
+    // to a Card's own container color, which made the free part of the track invisible and the
+    // bar look like it simply stopped at the used/free boundary.
+    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1151,10 +1217,10 @@ private fun StorageUsageBar(
         Spacer(modifier = Modifier.height(MaterialTheme.spacings.small))
         val otherUsedBytes = (usedBytes - highlightBytes).coerceAtLeast(0L)
         val freeBytes = (totalBytes - usedBytes).coerceAtLeast(0L)
-        Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(8.dp)) {
             Row(
                 modifier =
-                    Modifier.fillMaxSize().clip(RoundedCornerShape(3.dp)).background(trackColor)
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(4.dp)).background(trackColor)
             ) {
                 if (highlightBytes > 0) {
                     Box(
@@ -1182,6 +1248,7 @@ private fun StorageUsageBar(
             Box(
                 modifier =
                     Modifier.align(Alignment.CenterEnd)
+                        .padding(end = 2.dp)
                         .size(4.dp)
                         .clip(CircleShape)
                         .background(warningColor)
@@ -1303,7 +1370,7 @@ private fun SectionHeader(
     onToggleCollapsed: () -> Unit = {},
     leadingIcons: List<Int> = emptyList(),
 ) {
-    Card {
+    StickyCard {
         Row(
             modifier =
                 Modifier.fillMaxWidth()
@@ -1320,8 +1387,10 @@ private fun SectionHeader(
                     // the chevron (a sibling, outside that inner Row) flush against the Card edge
                     // instead.
                     .padding(
-                        horizontal = MaterialTheme.spacings.default,
-                        vertical = MaterialTheme.spacings.medium,
+                        start = MaterialTheme.spacings.medium,
+                        end = MaterialTheme.spacings.small,
+                        top = MaterialTheme.spacings.small,
+                        bottom = MaterialTheme.spacings.small,
                     ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1369,6 +1438,7 @@ private fun ShowGroupHeader(
     onToggleCollapsed: () -> Unit = {},
     swipeEnabled: Boolean = false,
     onSwipeDeleteRequest: () -> Unit = {},
+    onSelectClick: () -> Unit = {},
     deviceStorages: List<DeviceStorageStats> = emptyList(),
 ) {
     val downloadedSizeBytes =
@@ -1390,8 +1460,10 @@ private fun ShowGroupHeader(
                 .singleOrNull()
         }
 
+    var menuOpen by remember { mutableStateOf(false) }
+
     SwipeToDeleteContainer(enabled = swipeEnabled, onSwipeDeleteRequest = onSwipeDeleteRequest) {
-        Card {
+        StickyCard {
             Row(
                 modifier =
                     Modifier.fillMaxWidth()
@@ -1400,8 +1472,10 @@ private fun ShowGroupHeader(
                             onLongClick = onLongClick,
                         )
                         .padding(
-                            horizontal = MaterialTheme.spacings.default,
-                            vertical = MaterialTheme.spacings.small,
+                            start = MaterialTheme.spacings.medium,
+                            end = MaterialTheme.spacings.small,
+                            top = MaterialTheme.spacings.small,
+                            bottom = MaterialTheme.spacings.small,
                         ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1445,6 +1519,43 @@ private fun ShowGroupHeader(
                     }
                 }
                 if (!selectionMode) {
+                    // The same actions as long-press/swipe, but discoverable - neither gesture
+                    // has any visual affordance on its own.
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_more_vertical),
+                                contentDescription = stringResource(CoreR.string.more_options),
+                            )
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(stringResource(CoreR.string.downloads_select_episodes))
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_check),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    onSelectClick()
+                                },
+                            )
+                            // Same gating as the swipe - nothing mid-download or mid-move.
+                            if (swipeEnabled) {
+                                DeleteMenuItem(
+                                    text = stringResource(CoreR.string.clear_season_downloads),
+                                    onClick = {
+                                        menuOpen = false
+                                        onSwipeDeleteRequest()
+                                    },
+                                )
+                            }
+                        }
+                    }
                     IconButton(onClick = onToggleCollapsed) {
                         Icon(
                             painter =
@@ -1747,12 +1858,40 @@ private fun DownloadRow(
                         )
                     }
                 }
+                // Overflow instead of a play icon: tapping the row already opens the item, and a
+                // play icon here looked identical to the paused rows' "resume" one. Delete lives
+                // here so it isn't only reachable through the (invisible) swipe gesture.
                 item.isDownloaded() -> {
-                    IconButton(onClick = onClick) {
-                        Icon(
-                            painter = painterResource(CoreR.drawable.ic_play),
-                            contentDescription = stringResource(CoreR.string.download_action_play),
-                        )
+                    var menuOpen by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(
+                                painter = painterResource(CoreR.drawable.ic_more_vertical),
+                                contentDescription = stringResource(CoreR.string.more_options),
+                            )
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(CoreR.string.pvr_queue_select)) },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(CoreR.drawable.ic_check),
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    onToggleSelection()
+                                },
+                            )
+                            DeleteMenuItem(
+                                text = stringResource(CoreR.string.delete_download),
+                                onClick = {
+                                    menuOpen = false
+                                    onSwipeDeleteRequest()
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -2058,15 +2197,19 @@ private fun SwipeToDeleteContainer(
     val thresholdPx = maxSwipePx / 2f
 
     Box(modifier = Modifier.fillMaxWidth()) {
+        // Only visible while the row is dragged aside (the content on top is opaque) - a filled
+        // error-colored strip makes it obvious the gesture deletes, not just a stray trash icon.
         Box(
             modifier =
-                Modifier.matchParentSize().padding(horizontal = MaterialTheme.spacings.default),
+                Modifier.matchParentSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = MaterialTheme.spacings.default),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Icon(
                 painter = painterResource(CoreR.drawable.ic_trash),
                 contentDescription = stringResource(CoreR.string.delete_download),
-                tint = MaterialTheme.colorScheme.error,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
             )
         }
         Box(
@@ -2266,70 +2409,18 @@ private fun MigrateDownloadsDialog(
     )
 }
 
+/**
+ * Confirmation for deleting downloaded files from this device - one item (swipe/overflow), a whole
+ * show, or the current selection. [itemTitle]/[path] only apply to the single-item case; the size
+ * is phrased as what the user gets back ("Frees up …") rather than as a bare number.
+ */
 @Composable
-private fun DeleteSelectedDownloadsDialog(
-    count: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    sizeBytes: Long? = null,
-) {
-    AlertDialog(
-        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
-        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
-        // the same line.
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(CoreR.drawable.ic_trash),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(text = stringResource(CoreR.string.delete_selected_downloads))
-            }
-        },
-        text = {
-            Column {
-                Text(text = stringResource(CoreR.string.delete_selected_downloads_message, count))
-                if (sizeBytes != null) {
-                    Text(
-                        text = formatBinaryFileSize(sizeBytes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Icon(
-                    painter = painterResource(CoreR.drawable.ic_trash),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(
-                    text = stringResource(CoreR.string.delete_download),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
-                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(text = stringResource(CoreR.string.cancel))
-            }
-        },
-    )
-}
-
-@Composable
-private fun DeleteSingleDownloadDialog(
+private fun DeleteDownloadsDialog(
     title: String,
+    message: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    itemTitle: String? = null,
     path: String? = null,
     sizeBytes: Long? = null,
 ) {
@@ -2345,22 +2436,29 @@ private fun DeleteSingleDownloadDialog(
                     tint = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(text = stringResource(CoreR.string.delete_download))
+                Text(text = title)
             }
         },
         text = {
-            Column {
-                Text(text = title)
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacings.small)) {
+                if (itemTitle != null) {
+                    Text(text = itemTitle, style = MaterialTheme.typography.titleSmall)
+                }
+                Text(text = message)
+                if (sizeBytes != null && sizeBytes > 0) {
+                    Text(
+                        text =
+                            stringResource(
+                                CoreR.string.delete_download_frees_space,
+                                formatBinaryFileSize(sizeBytes),
+                            ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 if (path != null) {
                     Text(
                         text = path,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (sizeBytes != null) {
-                    Text(
-                        text = formatBinaryFileSize(sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -2392,71 +2490,98 @@ private fun DeleteSingleDownloadDialog(
     )
 }
 
+/**
+ * Confirmation for cancelling an in-progress download - unlike pausing, cancelling deletes the
+ * partial file, so the bytes already transferred are lost.
+ */
 @Composable
-private fun DeleteShowDownloadsDialog(
-    seriesName: String,
-    episodeCount: Int,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    sizeBytes: Long? = null,
-) {
+private fun CancelDownloadDialog(title: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
-        // Not AlertDialog's own `icon` slot - Material3 always renders that centered *above* the
-        // title, not inline with it. Building the title as an icon+text Row instead keeps them on
-        // the same line.
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    painter = painterResource(CoreR.drawable.ic_trash),
+                    painter = painterResource(CoreR.drawable.ic_x),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(text = stringResource(CoreR.string.clear_season_downloads))
+                Text(text = stringResource(CoreR.string.cancel_download_title))
             }
         },
-        text = {
-            Column {
-                Text(
-                    text =
-                        stringResource(
-                            CoreR.string.delete_show_downloads_message,
-                            episodeCount,
-                            seriesName,
-                        )
-                )
-                if (sizeBytes != null) {
-                    Text(
-                        text = formatBinaryFileSize(sizeBytes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
+        text = { Text(text = stringResource(CoreR.string.cancel_download_partial_message, title)) },
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Icon(
-                    painter = painterResource(CoreR.drawable.ic_trash),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
                 Text(
-                    text = stringResource(CoreR.string.delete_download),
+                    text = stringResource(CoreR.string.download_action_cancel),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Icon(painter = painterResource(CoreR.drawable.ic_x), contentDescription = null)
-                Spacer(modifier = Modifier.width(MaterialTheme.spacings.small))
-                Text(text = stringResource(CoreR.string.cancel))
+                Text(text = stringResource(CoreR.string.keep_downloading))
             }
         },
     )
+}
+
+@Composable
+private fun DeleteMenuItem(text: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text = text, color = MaterialTheme.colorScheme.error) },
+        leadingIcon = {
+            Icon(
+                painter = painterResource(CoreR.drawable.ic_trash),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
+        onClick = onClick,
+    )
+}
+
+/** Top bar title while selecting: "3 selected", plus the selection's size when known. */
+@Composable
+private fun SelectionTitle(count: Int, sizeBytes: Long = 0L) {
+    Column {
+        Text(
+            text = pluralStringResource(CoreR.plurals.downloads_selected_count, count, count),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        if (sizeBytes > 0) {
+            Text(
+                text = formatBinaryFileSize(sizeBytes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Horizontal inset shared by every Card in the list, so cards don't run into the screen edge/nav
+ * rail. Together with the cards' own [MaterialTheme.spacings.medium] inner padding it adds up to
+ * the plain rows' [MaterialTheme.spacings.default] padding, keeping card and row content aligned.
+ */
+@Composable
+private fun Modifier.cardMargin(): Modifier = padding(horizontal = MaterialTheme.spacings.small)
+
+/**
+ * A [Card] for sticky headers: the inset around it is filled with the screen background, otherwise
+ * rows scrolling underneath a pinned header would show through the margins.
+ */
+@Composable
+private fun StickyCard(content: @Composable () -> Unit) {
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .cardMargin()
+                .padding(vertical = MaterialTheme.spacings.extraSmall)
+    ) {
+        Card(modifier = Modifier.fillMaxWidth()) { content() }
+    }
 }
 
 private val dummyPvrQueueGroups =

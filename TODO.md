@@ -2396,3 +2396,23 @@ enter Sonarr/Radarr/Seerr until the user created a profile by hand.
       Settings > Profiles shows `admin@JollyFin CI Fixture` as Main straight away.
 
 Status: **done** (2026-10-07).
+
+## JF-97: Downloads screen polish + confirmation for removing local files
+
+The Downloads screen looked clunky: cards ran flush into the screen edge/nav rail, the storage
+bars' free-space track was invisible (same color as the card, so bars looked half-width),
+finished rows had a play icon identical to the paused rows' "resume" one, deleting a finished
+download was only reachable through an invisible swipe, and cancelling an in-progress download
+(which deletes the partial file) happened without asking.
+
+- [x] Cards inset (`cardMargin()`), sticky headers get an opaque background (`StickyCard`),
+      storage track uses a translucent overlay and is thicker.
+- [x] Finished rows and show headers get an overflow menu (Select / Delete) instead of the play
+      icon; swipe-to-delete reveals a filled error-colored strip.
+- [x] Cancelling an in-progress download asks first (`CancelDownloadDialog`); the three
+      near-identical delete dialogs are merged into `DeleteDownloadsDialog` with a "Frees up X" line.
+- [x] Selection mode shows "N selected" plus the selection's size as the top bar title.
+- [x] Verified on the Mi Pad 4 (release build over the existing install): layout, cancel and
+      delete confirmations (both dismissed), overflow Select -> selection title.
+
+Status: **done** (2026-10-08).
