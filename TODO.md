@@ -2449,4 +2449,9 @@ keep going and be controllable from the notification/lock screen.
 - [ ] Not verified: returning into the player after unlocking (couldn't unlock remotely), and the
       CLI round trip from actual Termux.
 
-Status: done (2026-10-08), two follow-up checks open.
+- [ ] Play Console "Foreground service permissions" declaration for `mediaPlayback` (App
+      content) - Play rejected the v2.16.1 upload without it ("You must let us know whether your
+      app uses any Foreground Service permissions"). Needs the owner in the Console; then re-run
+      the failed `Play Store Release` job for v2.16.1 and push/tag 2.17.0.
+
+Status: done (2026-10-08), two follow-up checks open; Play release blocked on the declaration.
