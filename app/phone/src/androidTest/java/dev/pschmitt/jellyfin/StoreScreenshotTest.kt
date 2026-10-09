@@ -43,6 +43,9 @@ class StoreScreenshotTest {
         private const val FIXTURE_USERNAME = "admin"
         private const val FIXTURE_PASSWORD = "adminpass123"
         private const val DEFAULT_BASE_URL = "http://127.0.0.1:8096"
+
+        // Navigation pops crossfade for 300ms; a bit over twice that covers slow emulators.
+        private const val TRANSITION_SETTLE_MS = 700L
     }
 
     @get:Rule val anrDismissRule = AnrDismissRule()
@@ -138,19 +141,37 @@ class StoreScreenshotTest {
         waitForHomeOrRetryBack()
     }
 
-    private fun waitForHomeOrRetryBack(maxPresses: Int = 3) {
+    /**
+     * Back out of Settings until Home is really the current screen again. "An e2e-home-screen node
+     * exists" isn't enough: during a navigation transition the incoming and outgoing destinations
+     * are both composed, so Home could be found while a Settings level was still the top of the
+     * back stack. A real tenInch CI run did exactly that - the dark journey then opened a movie *on
+     * top of Settings*, and its final Back landed on Settings instead of Home (timeout in
+     * waitForHomeLoaded). Require that no Settings screen is left in the tree and Home is
+     * displayed, pressing Back again only while a Settings screen is still around.
+     */
+    private fun waitForHomeOrRetryBack(maxPresses: Int = 4) {
         repeat(maxPresses) {
-            if (
-                composeRule.onAllNodesWithTag("e2e-home-screen").fetchSemanticsNodes().isNotEmpty()
-            ) {
+            // Let the previous pop's crossfade finish before judging where we are.
+            Thread.sleep(TRANSITION_SETTLE_MS)
+            composeRule.waitForIdle()
+            if (!settingsScreenPresent() && homeScreenDisplayed()) {
                 waitForHomeLoaded()
                 return
             }
-            Thread.sleep(500)
-            device.pressBack()
+            if (settingsScreenPresent()) device.pressBack()
         }
+        composeRule.waitUntil(30_000) { !settingsScreenPresent() && homeScreenDisplayed() }
         waitForHomeLoaded()
     }
+
+    private fun settingsScreenPresent(): Boolean =
+        composeRule.onAllNodesWithTag("e2e-settings-screen").fetchSemanticsNodes().isNotEmpty()
+
+    private fun homeScreenDisplayed(): Boolean = runCatching {
+        composeRule.onAllNodesWithTag("e2e-home-screen").onFirst().isDisplayed()
+    }
+        .getOrDefault(false)
 
     private fun captureJourney(suffix: String) {
         captureScreenshot("01_home$suffix")
