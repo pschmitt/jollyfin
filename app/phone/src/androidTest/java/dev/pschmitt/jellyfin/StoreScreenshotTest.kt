@@ -137,36 +137,38 @@ class StoreScreenshotTest {
         // failure screenshot showed only the first press had landed (correctly dark-themed root
         // Settings screen, not Home) - the second one raced the first pop's 300ms crossfade
         // transition and got lost. Press, wait for the pop to actually finish, then press again.
-        device.pressBack()
-        waitForHomeOrRetryBack()
+        pressBackUntilHome(leavingTag = "e2e-settings-screen")
     }
 
     /**
-     * Back out of Settings until Home is really the current screen again. "An e2e-home-screen node
-     * exists" isn't enough: during a navigation transition the incoming and outgoing destinations
-     * are both composed, so Home could be found while a Settings level was still the top of the
-     * back stack. A real tenInch CI run did exactly that - the dark journey then opened a movie *on
-     * top of Settings*, and its final Back landed on Settings instead of Home (timeout in
-     * waitForHomeLoaded). Require that no Settings screen is left in the tree and Home is
-     * displayed, pressing Back again only while a Settings screen is still around.
+     * Press Back until Home is really the current screen again, starting from a screen tagged
+     * [leavingTag]. Two ways a single pressBack() + "wait for Home" failed on real CI runs, both on
+     * the slower tenInch emulator:
+     * - the press was swallowed by a still-running transition, leaving the app on the movie detail
+     *   screen (or root Settings) until the wait timed out;
+     * - "an e2e-home-screen node exists" passed mid-transition while Settings was still the top of
+     *   the back stack, so the next journey opened a movie *on top of Settings* and its own Back
+     *   later landed on Settings. So: let each pop settle, accept Home only once it's displayed and
+     *   nothing tagged [leavingTag] is left in the tree, and press again only while that screen is
+     *   still around - never on Home itself, which would leave the app.
      */
-    private fun waitForHomeOrRetryBack(maxPresses: Int = 4) {
+    private fun pressBackUntilHome(leavingTag: String, maxPresses: Int = 4) {
         repeat(maxPresses) {
-            // Let the previous pop's crossfade finish before judging where we are.
+            if (tagPresent(leavingTag)) device.pressBack()
+            // Let the pop's crossfade finish before judging where we are.
             Thread.sleep(TRANSITION_SETTLE_MS)
             composeRule.waitForIdle()
-            if (!settingsScreenPresent() && homeScreenDisplayed()) {
+            if (!tagPresent(leavingTag) && homeScreenDisplayed()) {
                 waitForHomeLoaded()
                 return
             }
-            if (settingsScreenPresent()) device.pressBack()
         }
-        composeRule.waitUntil(30_000) { !settingsScreenPresent() && homeScreenDisplayed() }
+        composeRule.waitUntil(30_000) { !tagPresent(leavingTag) && homeScreenDisplayed() }
         waitForHomeLoaded()
     }
 
-    private fun settingsScreenPresent(): Boolean =
-        composeRule.onAllNodesWithTag("e2e-settings-screen").fetchSemanticsNodes().isNotEmpty()
+    private fun tagPresent(tag: String): Boolean =
+        composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
 
     private fun homeScreenDisplayed(): Boolean = runCatching {
         composeRule.onAllNodesWithTag("e2e-home-screen").onFirst().isDisplayed()
@@ -181,8 +183,7 @@ class StoreScreenshotTest {
         waitForTag("e2e-movie-title", 30_000)
         captureScreenshot("02_movie_detail$suffix")
 
-        device.pressBack()
-        waitForHomeLoaded()
+        pressBackUntilHome(leavingTag = "e2e-movie-title")
     }
 
     /**
