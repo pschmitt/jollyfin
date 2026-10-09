@@ -91,27 +91,27 @@ class StoreScreenshotTest {
      * (see NavigationRoot.kt's WelcomeRoute/ServersRoute/UsersRoute wiring).
      */
     private fun connectAndLogIn(baseUrl: String, username: String, password: String) {
-        clickWithRetry { composeRule.onNodeWithText("Continue") }
-        clickWithRetry { composeRule.onNodeWithTag("e2e-add-server-fab") }
+        clickUntil("e2e-add-server-fab") { composeRule.onNodeWithText("Continue") }
+        clickUntil("e2e-server-url") { composeRule.onNodeWithTag("e2e-add-server-fab") }
 
         composeRule.onNodeWithTag("e2e-server-url").performTextInput(baseUrl)
         dismissKeyboard()
-        clickWithRetry { composeRule.onNodeWithTag("e2e-connect-button") }
-
-        waitForTag("e2e-add-user-fab", 30_000)
-        clickWithRetry { composeRule.onNodeWithTag("e2e-add-user-fab") }
-
-        waitForTag("e2e-username", 30_000)
+        clickUntil("e2e-add-user-fab", attemptTimeoutMillis = 30_000) {
+            composeRule.onNodeWithTag("e2e-connect-button")
+        }
+        clickUntil("e2e-username") { composeRule.onNodeWithTag("e2e-add-user-fab") }
         composeRule.onNodeWithTag("e2e-username").performTextInput(username)
         composeRule.onNodeWithTag("e2e-password").performTextInput(password)
         dismissKeyboard()
-        clickWithRetry { composeRule.onNodeWithTag("e2e-login-button") }
+        clickUntil("e2e-home-screen", attemptTimeoutMillis = 60_000) {
+            composeRule.onNodeWithTag("e2e-login-button")
+        }
 
         waitForHomeLoaded()
     }
 
     private fun switchToDarkModeAndReturnToHome() {
-        clickWithRetry { composeRule.onNodeWithTag("e2e-settings-button") }
+        clickUntil("e2e-settings-screen") { composeRule.onNodeWithTag("e2e-settings-button") }
         // The root Settings screen's lone "Appearance" section has both its own section header
         // and its single category row titled "Appearance" (SettingsViewModel.kt reuses
         // settings_category_appearance for both the PreferenceGroup name and the PreferenceCategory
@@ -178,7 +178,9 @@ class StoreScreenshotTest {
     private fun captureJourney(suffix: String) {
         captureScreenshot("01_home$suffix")
 
-        clickWithRetry { composeRule.onAllNodesWithTag("e2e-item-card").onFirst() }
+        clickUntil("e2e-movie-title", attemptTimeoutMillis = 30_000) {
+            composeRule.onAllNodesWithTag("e2e-item-card").onFirst()
+        }
         waitForContentDescription("Play", 30_000)
         waitForTag("e2e-movie-title", 30_000)
         captureScreenshot("02_movie_detail$suffix")
@@ -264,6 +266,33 @@ class StoreScreenshotTest {
         }
         node().performClick()
         settleAfterClick()
+    }
+
+    /**
+     * A click that navigates, retried until the destination (a node tagged [expectedTag]) shows up.
+     * [clickWithRetry] only retries when the click itself throws - but real CI runs also had clicks
+     * that "succeeded" without registering (e.g. Welcome's "Continue" on the sevenInch emulator: no
+     * exception, still on Welcome, so the next step's node never appeared). If an earlier attempt
+     * did land after all, the source node is gone by the next attempt and that click failing is
+     * expected, not an error.
+     */
+    private fun clickUntil(
+        expectedTag: String,
+        attempts: Int = 4,
+        attemptTimeoutMillis: Long = 10_000,
+        node: () -> SemanticsNodeInteraction,
+    ) {
+        repeat(attempts) {
+            if (tagPresent(expectedTag)) return
+            runCatching { node().performClick() }
+            settleAfterClick()
+            val arrived = runCatching {
+                composeRule.waitUntil(attemptTimeoutMillis) { tagPresent(expectedTag) }
+            }
+                .isSuccess
+            if (arrived) return
+        }
+        waitForTag(expectedTag, attemptTimeoutMillis)
     }
 
     /**
