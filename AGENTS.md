@@ -38,9 +38,9 @@ install/logcat/adb-enable) in composable recipes.
 
 ## Builds
 
-- **Never run Gradle builds locally on this machine (`fnuc`)** — this is a multi-module
-  Android project and local compiles are heavy. Always build on `rofl-13.brkn.lol` or
-  `rofl-14.brkn.lol` instead. The `justfile` automates this:
+- **Never run Gradle builds locally on this machine** — this is a multi-module
+  Android project and local compiles are heavy. Always build on a build host (see the
+  `brkn-infra` skill) instead. The `justfile` automates this:
   - `just sync [host]` — rsync the working tree to the remote build host (excludes
     `.git`, `build/`, `.gradle/`). The remote destination directory is namespaced per git
     worktree (`jollyfin-verify-<worktree-dirname>` when run from a linked worktree, e.g. one
@@ -62,11 +62,11 @@ install/logcat/adb-enable) in composable recipes.
     `.just-parse-flags.sh` (not a real just recipe — plain bash, invoked by those recipes
     since just has no native flag/option parser).
   - Manually, the equivalent is:
-    1. `rsync -az --delete --exclude='.git' --exclude='**/build/' --exclude='.gradle/' --exclude='**/.gradle/' ./ rofl-13.brkn.lol:~/devel/private/pschmitt/jollyfin-verify/`
-    2. `ssh rofl-13.brkn.lol 'cd ~/devel/private/pschmitt/jollyfin-verify && nix develop --command ./gradlew <tasks>'`
+    1. `rsync -az --delete --exclude='.git' --exclude='**/build/' --exclude='.gradle/' --exclude='**/.gradle/' ./ <build-host>:~/devel/private/pschmitt/jollyfin-verify/`
+    2. `ssh <build-host> 'cd ~/devel/private/pschmitt/jollyfin-verify && nix develop --command ./gradlew <tasks>'`
     3. Re-run the rsync after every local edit before rebuilding remotely — there is no
        watch/sync daemon, it's a one-shot copy each time.
-  - Plain Nix derivation builds (non-Gradle) already offload to rofl-13/rofl-14 via
+  - Plain Nix derivation builds (non-Gradle) already offload to the build hosts via
     configured remote builders; only Gradle itself needs this manual redirect, since
     Gradle always executes wherever it's invoked regardless of Nix's remote-builder config.
 - Gradle modules use product flavors (at least a "Libre" flavor), so bare task names like
