@@ -1,10 +1,15 @@
 # AGENTS.md
 
+## Private infrastructure details
+
+Do not include private hostnames, device identifiers, network addresses or topology here. Use placeholders and consult the private `brkn-infra` skill for specific host or device details.
+
+
 Repository instructions for AI coding agents working on JollyFin.
 
 See `.just/android-app-ci/AGENTS-shared.md` for the fleet-wide task-tracking convention, dev
 environment (`nix develop`/`git-hooks.nix`), CI-is-the-sole-lint-authority rule, and physical test
-device docs (this app only has Mi Pad 4, not the other two fleet devices) - read it alongside this
+device docs (this app only has <tablet>, not the other two fleet devices) - read it alongside this
 file, not instead of it.
 
 ## Task tracking
@@ -35,7 +40,7 @@ pre-commit hook, `just lint`/`just format` and CI all run the same nixpkgs `ktfm
 style) from `flake.lock`; there is no ktfmt Gradle plugin. (The old `settings.gradle.kts`
 `include()` blank-line incident came from a ktfmt version mismatch and no longer applies.)
 Prefer the `justfile` recipes over raw `./gradlew`/`ssh`/`adb` invocations — run `just --list` for
-the full set. It wraps everything below (remote builds, fetching APKs, and Mi Pad 4
+the full set. It wraps everything below (remote builds, fetching APKs, and <tablet>
 install/logcat/adb-enable) in composable recipes.
 
 ## Builds
@@ -65,8 +70,8 @@ install/logcat/adb-enable) in composable recipes.
     `.just-parse-flags.sh` (not a real just recipe — plain bash, invoked by those recipes
     since just has no native flag/option parser).
   - Manually, the equivalent is:
-    1. `rsync -az --delete --exclude='.git' --exclude='**/build/' --exclude='.gradle/' --exclude='**/.gradle/' ./ <build-host>:~/devel/private/pschmitt/jollyfin-verify/`
-    2. `ssh <build-host> 'cd ~/devel/private/pschmitt/jollyfin-verify && nix develop --command ./gradlew <tasks>'`
+    1. `rsync -az --delete --exclude='.git' --exclude='**/build/' --exclude='.gradle/' --exclude='**/.gradle/' ./ <build-host>:<private-checkout>`
+    2. `ssh <build-host> 'cd <private-checkout> && nix develop --command ./gradlew <tasks>'`
     3. Re-run the rsync after every local edit before rebuilding remotely — there is no
        watch/sync daemon, it's a one-shot copy each time.
   - Plain Nix derivation builds (non-Gradle) already offload to the build hosts via
@@ -97,7 +102,7 @@ install/logcat/adb-enable) in composable recipes.
 
 ## Physical test device
 
-See the shared doc's Mi Pad 4 section (`just mipad-connect`/`mipad-install`/`mipad-uninstall`/
+See the shared doc's <tablet> section (`just mipad-connect`/`mipad-install`/`mipad-uninstall`/
 `mipad-logcat`/`mipad-shell`, the signature-mismatch gotcha) - jollyfin is the one app in the
-fleet that doesn't also have Zenfone/Pixel 5 recipes. `just deploy [flags]` is this repo's own
+fleet that doesn't also have Zenfone/<phone> recipes. `just deploy [flags]` is this repo's own
 build+fetch+install-on-MiPad recipe, same flags as `just build` (e.g. `just deploy --debug`).
