@@ -67,11 +67,11 @@ class SetupRepositoryImpl(
 
             addresses.firstNotNullOfOrNull { address ->
                 runCatching {
-                    val api = JellyfinApi(applicationContext)
-                    api.api.update(baseUrl = address.address)
-                    val systemInfo by api.systemApi.getPublicSystemInfo()
-                    systemInfo.version?.takeIf { it.isNotBlank() }
-                }
+                        val api = JellyfinApi(applicationContext)
+                        api.api.update(baseUrl = address.address)
+                        val systemInfo by api.systemApi.getPublicSystemInfo()
+                        systemInfo.version?.takeIf { it.isNotBlank() }
+                    }
                     .getOrNull()
             }
         }

@@ -30,8 +30,10 @@ file, not instead of it.
 
 ## Dev environment
 
-See the shared doc for the `nix develop`/`git-hooks.nix` basics and the no-ktfmt-pre-commit-hook
-rationale (the `settings.gradle.kts` `include()` blank-line incident it references happened here).
+See the shared doc for the `nix develop`/`git-hooks.nix` basics. ktfmt is nix-only here: the
+pre-commit hook, `just lint`/`just format` and CI all run the same nixpkgs `ktfmt` (kotlinlang
+style) from `flake.lock`; there is no ktfmt Gradle plugin. (The old `settings.gradle.kts`
+`include()` blank-line incident came from a ktfmt version mismatch and no longer applies.)
 Prefer the `justfile` recipes over raw `./gradlew`/`ssh`/`adb` invocations — run `just --list` for
 the full set. It wraps everything below (remote builds, fetching APKs, and Mi Pad 4
 install/logcat/adb-enable) in composable recipes.
@@ -53,7 +55,8 @@ install/logcat/adb-enable) in composable recipes.
   - `just build [flags]` — build the libre-flavor APK remotely. Flags: `--tv`/`--phone`
     (default `--phone`), `--debug`/`--release` (default `--debug`), `--host=<host>`.
     E.g. `just build --debug` (phone debug, the common case) or `just build --tv --release`.
-  - `just lint` — remote `ktfmtCheck` (mirrors `.github/workflows/lint.yaml`).
+  - `just lint` — local `ktfmt --dry-run` via `nix develop .#ktfmt` (same binary as CI's
+    `.github/workflows/lint.yaml`); no Gradle.
   - `just test` — remote unit test suites for `:data` and `:core`.
   - `just fetch [flags]` — scp the built APK split back to `./dist/` locally. Same flags
     as `just build`, plus `--abi=<abi>` (default `arm64-v8a`).
@@ -73,11 +76,9 @@ install/logcat/adb-enable) in composable recipes.
   `:core:compileDebugKotlin` are ambiguous. Use the flavor-qualified task name (e.g.
   `compileLibreDebugKotlin`), or run `./gradlew tasks` in the target module first to confirm
   the exact name.
-- Formatting a Kotlin file directly (not a full Gradle build) is fine to run locally:
-  `just format` runs the standalone `ktfmt` CLI over all tracked `.kt`/`.kts` files.
-  Treat it as an advisory quick pass only — it's a newer `ktfmt` version than CI's
-  pinned one (see the pre-commit note above) — and confirm with `just lint` before
-  relying on it.
+- Formatting needs no Gradle and is fine to run locally: `just format` runs the flake's `ktfmt`
+  (the exact version CI and the pre-commit hook use) over all tracked `.kt`/`.kts` files, and
+  `just lint` checks it.
 
 ## Releases
 

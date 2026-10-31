@@ -32,7 +32,6 @@ kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.12.0"
 ksp = "2.3.13"
-ktfmt = "0.27.0"
 libmpv = "1.0.0"
 material = "1.14.0"
 media3-ffmpeg-decoder = "1.9.0+1"
@@ -127,4 +126,3 @@ kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }

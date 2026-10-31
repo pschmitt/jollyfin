@@ -19,15 +19,15 @@ class AnrDismissRule : TestWatcher() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         watcherThread =
             Thread {
-                while (!Thread.currentThread().isInterrupted) {
-                    runCatching {
-                        if (device.findObject(By.textContains("isn't responding")) != null) {
-                            device.findObject(By.text("Wait"))?.click()
+                    while (!Thread.currentThread().isInterrupted) {
+                        runCatching {
+                            if (device.findObject(By.textContains("isn't responding")) != null) {
+                                device.findObject(By.text("Wait"))?.click()
+                            }
                         }
+                        Thread.sleep(1_000)
                     }
-                    Thread.sleep(1_000)
                 }
-            }
                 .apply {
                     isDaemon = true
                     start()

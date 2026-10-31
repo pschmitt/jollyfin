@@ -170,10 +170,11 @@ class StoreScreenshotTest {
     private fun tagPresent(tag: String): Boolean =
         composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
 
-    private fun homeScreenDisplayed(): Boolean = runCatching {
-        composeRule.onAllNodesWithTag("e2e-home-screen").onFirst().isDisplayed()
-    }
-        .getOrDefault(false)
+    private fun homeScreenDisplayed(): Boolean =
+        runCatching {
+                composeRule.onAllNodesWithTag("e2e-home-screen").onFirst().isDisplayed()
+            }
+            .getOrDefault(false)
 
     private fun captureJourney(suffix: String) {
         captureScreenshot("01_home$suffix")
@@ -286,10 +287,11 @@ class StoreScreenshotTest {
             if (tagPresent(expectedTag)) return
             runCatching { node().performClick() }
             settleAfterClick()
-            val arrived = runCatching {
-                composeRule.waitUntil(attemptTimeoutMillis) { tagPresent(expectedTag) }
-            }
-                .isSuccess
+            val arrived =
+                runCatching {
+                        composeRule.waitUntil(attemptTimeoutMillis) { tagPresent(expectedTag) }
+                    }
+                    .isSuccess
             if (arrived) return
         }
         waitForTag(expectedTag, attemptTimeoutMillis)

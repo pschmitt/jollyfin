@@ -28,7 +28,7 @@ suspend fun JellyfinRepositoryOfflineImpl.getDownloadedEpisodeOrNull(
 /** The downloaded copy of movie [itemId], or null when it isn't downloaded. */
 suspend fun JellyfinRepositoryOfflineImpl.getDownloadedMovieOrNull(itemId: UUID): JollyfinMovie? =
     runCatching {
-        getMovie(itemId)
-    }
-    .getOrNull()
-    ?.takeIf { it.hasLocalSource() }
+            getMovie(itemId)
+        }
+        .getOrNull()
+        ?.takeIf { it.hasLocalSource() }

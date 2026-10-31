@@ -2481,3 +2481,16 @@ several sequential server calls first, and playback fetched PlaybackInfo even fo
       system 12/24h setting; updated on the controller's progress ticks.
 
 Status (JF-100..102): done (2026-10-08) apart from the open on-device checks.
+
+## JF-103: ktfmt via nix only (drop the Gradle plugin)
+
+- [x] Removed the `com.ncorti.ktfmt.gradle` plugin (version + plugin entries in
+      `gradle/libs.versions.toml`, alias/apply/`kotlinLangStyle()` config in `build.gradle.kts`).
+      The pre-commit hook, `just lint`/`just format` and CI's `Lint` workflow now all run the
+      nixpkgs `ktfmt --kotlinlang-style` from `flake.lock` (`nix develop .#ktfmt`), so versions
+      cannot drift. Bumped the `android-app-ci` flake input and `.just/android-app-ci` submodule
+      to the shared change. All tracked `.kt`/`.kts` reformatted once (formatting only).
+- [x] Verified: `ktfmt --version` via `.#ktfmt`, `--dry-run --set-exit-if-changed` clean, remote
+      Gradle configure + compile without the plugin on a build host, pre-commit hook on commit.
+
+Status: done (2026-10-31).

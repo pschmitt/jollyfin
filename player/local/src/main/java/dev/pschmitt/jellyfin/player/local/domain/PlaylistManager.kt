@@ -129,8 +129,8 @@ internal constructor(
                     val seasonEpisodes =
                         if (localEpisode != null) {
                             runCatching {
-                                withTimeoutOrNull(SEASON_FETCH_TIMEOUT_MS) { fetchSeason() }
-                            }
+                                    withTimeoutOrNull(SEASON_FETCH_TIMEOUT_MS) { fetchSeason() }
+                                }
                                 .getOrNull()
                                 ?: offlineRepository.getEpisodes(
                                     seriesId = episode.seriesId,

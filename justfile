@@ -139,8 +139,10 @@ build-fetch *flags:
     just build {{flags}}
     just fetch {{flags}}
 
-# ktfmt check via Gradle, remotely (mirrors .github/workflows/lint.yaml)
-lint host=remote_host: (gradle host "ktfmtCheck")
+# ktfmt check with the flake's nixpkgs ktfmt - the same binary CI's lint workflow and the pre-commit
+# hook use. Lightweight, so it runs locally (no Gradle).
+lint:
+    git ls-files -z '*.kt' '*.kts' | xargs -0 nix develop .#ktfmt --command ktfmt --kotlinlang-style --dry-run --set-exit-if-changed
 
 # Run the fast unit test suites remotely
 test host=remote_host: (gradle host ":data:testDebugUnitTest" ":core:testLibreDebugUnitTest")
