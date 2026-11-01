@@ -2503,8 +2503,10 @@ Status: done (2026-10-31).
 - [x] Point existing reusable lint, release, Play Store, Play Store assets, and screenshot
       workflows/actions/scripts at `ci-workflows`, preserving triggers, artifacts, inputs,
       permissions, and the publish gate; keep the multi-module Build workflow caller-owned.
-- [x] Validate workflow references, YAML, Nix formatting/lint, and the Just recipes without pushing
-      changes that could trigger release or Play Store publishing.
+- [x] Validate workflow references, YAML, Nix formatting/lint, and the Just recipes; validate Build
+      and Lint on a temporary branch before updating main with a skip-marked push.
 
 Status: **done** (2026-11-01) - actionlint passes with only the existing `ubuntu-26.04` runner-label
-warning ignored; `nixfmt --check`, `statix check`, and `just --list` pass. No push or release run.
+warning ignored; `nixfmt --check`, `statix check`, and `just --list` pass. Build and Lint passed on
+temporary-branch commit `6ed1960d`. Main was updated through `7d46fdb9` with a final empty commit
+bearing `[skip ci]`; CI-watch confirmed that no workflows ran on that push.
