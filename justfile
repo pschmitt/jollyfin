@@ -33,9 +33,9 @@ default:
     @just --list
 
 # Recipes shared across the app fleet (format, nix-fmt, nix-lint, screenshots-upload) - see
-# pschmitt/android-app-ci's just/common.just for the source of truth. Pulled in via a git
-# submodule at .just/android-app-ci (tracking that repo's main branch, though jollyfin only
-# imports common.just from it - single-module.just needs a module axis this repo's multi-module
+# pschmitt/ci-workflows' just/common.just for the source of truth. Pulled in via a git
+# submodule at .just/android-app-ci (the compatibility path for ci-workflows' main branch). This
+# repo only imports common.just from it - single-module.just needs a module axis this multi-module
 # build doesn't have). `just update-common` (defined at the bottom of this file) refreshes it. The
 # devShell's shellHook auto-runs `git submodule update --init` on every `nix develop` entry, so a
 # fresh git worktree never needs a manual `--init` step.
@@ -293,10 +293,10 @@ play-feature-graphic-upload:
       --type featureGraphic \
       --file "$graphic"
 
-# --- Shared recipes (pschmitt/android-app-ci) -------------------------------
+# --- Shared recipes (pschmitt/ci-workflows) --------------------------------
 
-# Advance the .just/android-app-ci submodule to the tip of its tracked branch (main) and stage the
-# result - review the diff like any other dependency bump before committing it.
+# Advance the .just/android-app-ci submodule (ci-workflows) to the tip of its tracked branch and
+# stage the result - review the diff like any other dependency bump before committing it.
 update-common:
     git submodule update --remote .just/android-app-ci
     git add .just/android-app-ci

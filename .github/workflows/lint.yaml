@@ -1,7 +1,7 @@
 name: Lint
 
 # Dispatchable on demand in addition to its normal push/PR gating. Delegates to
-# pschmitt/android-app-ci's reusable lint workflow (ktfmt + Android Lint, with the ktfmt
+# pschmitt/ci-workflows' reusable lint workflow (ktfmt + Android Lint, with the ktfmt
 # auto-fix-PR behavior) - see that repo's README for what it does.
 #
 # enable-android-lint is off for now: jollyfin's lint.yaml never ran Android Lint before, and
@@ -25,7 +25,7 @@ on:
 
 jobs:
   lint:
-    uses: pschmitt/android-app-ci/.github/workflows/lint.yaml@main
+    uses: pschmitt/ci-workflows/.github/workflows/lint.yaml@main
     with:
       lint-baseline-path: ''
       enable-android-lint: false

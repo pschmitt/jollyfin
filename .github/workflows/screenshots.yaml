@@ -3,7 +3,7 @@ name: Screenshots
 # Screenshot capture is intentionally manual. It uses the disposable, pre-baked Jellyfin fixture
 # (ci/jellyfin/) and the same emulator action as other Android CI in this org, then uploads the
 # captured images as a build artifact (or, with open_pr, opens/updates a PR with them committed -
-# see pschmitt/android-app-ci's screenshots-open-pr.yaml reusable workflow).
+# see pschmitt/ci-workflows' screenshots-open-pr.yaml reusable workflow).
 # Jellyfin-only for now (see TODO.md FINDROID-71) - no PVR/Sonarr/Radarr/Seerr screens, and
 # app/tv isn't covered by this pass either.
 on:
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - uses: pschmitt/android-app-ci/.github/actions/setup-jdk-gradle@main
+      - uses: pschmitt/ci-workflows/.github/actions/setup-jdk-gradle@main
 
       - name: Set up Ruby and fastlane
         uses: ruby/setup-ruby@v1
@@ -68,7 +68,7 @@ jobs:
           cp app/phone/build/outputs/apk/libre/debug/phone-libre-x86_64-debug.apk dist/
           cp app/phone/build/outputs/apk/androidTest/libre/debug/phone-libre-debug-androidTest.apk dist/
 
-      - uses: pschmitt/android-app-ci/.github/actions/enable-kvm@main
+      - uses: pschmitt/ci-workflows/.github/actions/enable-kvm@main
 
       - name: Capture screenshots in a ${{ matrix.device_type }} emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -96,7 +96,7 @@ jobs:
           # (captureE2eScreenshot, written straight to the app's external files dir) while still
           # preserving the real exit code of the capture itself.
           script: |
-            curl -fsSL https://raw.githubusercontent.com/pschmitt/android-app-ci/main/scripts/wait-for-android-emulator.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/pschmitt/ci-workflows/main/scripts/wait-for-android-emulator.sh | bash
             adb reverse tcp:8096 tcp:8096
             serial="$(adb devices | awk '$2 == "device" { print $1; exit }')" && test -n "$serial" && adb -s "$serial" install -r -g -t dist/phone-libre-x86_64-debug.apk && SCREENGRAB_DEVICE_TYPE=${{ matrix.device_type }} SCREENGRAB_SPECIFIC_DEVICE="$serial" fastlane screengrab; rc=$?; mkdir -p dist/failure-screenshots; adb -s "$serial" pull /sdcard/Android/data/dev.pschmitt.jollyfin.debug/files/e2e-screenshots dist/failure-screenshots >/dev/null 2>&1 || true; exit $rc
 
@@ -130,7 +130,7 @@ jobs:
   open-pr:
     needs: capture
     if: ${{ !cancelled() && !failure() && inputs.open_pr }}
-    uses: pschmitt/android-app-ci/.github/workflows/screenshots-open-pr.yaml@main
+    uses: pschmitt/ci-workflows/.github/workflows/screenshots-open-pr.yaml@main
     with:
       artifact-label: jollyfin
       commit-message: "chore: update Play Store screenshots (phone, 7in, 10in tablet)"

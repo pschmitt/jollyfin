@@ -11,8 +11,8 @@
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    android-app-ci = {
-      url = "github:pschmitt/android-app-ci";
+    ci-workflows = {
+      url = "github:pschmitt/ci-workflows";
       flake = false;
     };
   };
@@ -23,7 +23,7 @@
       nixpkgs,
       android-nixpkgs,
       git-hooks,
-      android-app-ci,
+      ci-workflows,
     }:
     let
       system = "x86_64-linux";
@@ -32,7 +32,7 @@
         config.allowUnfree = true;
       };
 
-      androidEnv = import "${android-app-ci}/nix/devshells.nix" {
+      androidEnv = import "${ci-workflows}/nix/devshells.nix" {
         inherit pkgs android-nixpkgs system;
         appName = "JollyFin";
         # buildSrc/src/main/kotlin/Versions.kt: COMPILE_SDK = 37, BUILD_TOOLS = "36.1.0" (not a

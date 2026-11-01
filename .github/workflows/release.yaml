@@ -3,7 +3,7 @@ name: Release
 # One pipeline, two release flavors depending on what got pushed:
 # - a push to main moves the rolling "latest" prerelease tag and republishes it
 # - a push of a "vX.Y.Z" tag publishes a real, permanent release
-# Delegates to pschmitt/android-app-ci's reusable release workflow, called with jollyfin's
+# Delegates to pschmitt/ci-workflows' reusable release workflow, called with jollyfin's
 # phone+tv module layout (8 APKs total instead of a single module's 4).
 
 on:
@@ -16,7 +16,7 @@ on:
 
 jobs:
   release:
-    uses: pschmitt/android-app-ci/.github/workflows/release.yaml@main
+    uses: pschmitt/ci-workflows/.github/workflows/release.yaml@main
     with:
       app-display-name: JollyFin
       application-id: dev.pschmitt.jollyfin

@@ -2494,3 +2494,17 @@ Status (JF-100..102): done (2026-10-08) apart from the open on-device checks.
       Gradle configure + compile without the plugin on a build host, pre-commit hook on commit.
 
 Status: done (2026-10-31).
+
+## JF-104: Migrate shared Android CI to ci-workflows
+
+- [x] Point the existing shared CI submodule path at `ci-workflows` and update the Nix devShell
+      input, recipe imports, and guidance. The `.just/android-app-ci` path remains as the local
+      compatibility path used by the Android app fleet.
+- [x] Point existing reusable lint, release, Play Store, Play Store assets, and screenshot
+      workflows/actions/scripts at `ci-workflows`, preserving triggers, artifacts, inputs,
+      permissions, and the publish gate; keep the multi-module Build workflow caller-owned.
+- [x] Validate workflow references, YAML, Nix formatting/lint, and the Just recipes without pushing
+      changes that could trigger release or Play Store publishing.
+
+Status: **done** (2026-11-01) - actionlint passes with only the existing `ubuntu-26.04` runner-label
+warning ignored; `nixfmt --check`, `statix check`, and `just --list` pass. No push or release run.

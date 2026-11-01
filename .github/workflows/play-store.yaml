@@ -5,7 +5,7 @@ name: Play Store Release
 # screenshots.yaml's own existing scope. Publishes to both the internal and closed (alpha) testing
 # tracks in one upload - closed testing is the highest track this app is currently eligible for,
 # so every tagged release goes out to both simultaneously rather than needing a separate
-# promotion step. Delegates the actual build/publish to pschmitt/android-app-ci's reusable
+# promotion step. Delegates the actual build/publish to pschmitt/ci-workflows' reusable
 # play-store.yaml, which additionally requires the repository variable PLAY_PUBLISH_ENABLED=true
 # and a PLAY_SERVICE_ACCOUNT_JSON secret - neither exists until those are deliberately set up in
 # Settings > Secrets and variables, so a tag push safely fails loudly (see that workflow's
@@ -47,7 +47,7 @@ on:
 
 jobs:
   play-store:
-    uses: pschmitt/android-app-ci/.github/workflows/play-store.yaml@main
+    uses: pschmitt/ci-workflows/.github/workflows/play-store.yaml@main
     with:
       application-id: dev.pschmitt.jollyfin
       artifact-label: jollyfin
