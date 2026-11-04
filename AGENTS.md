@@ -47,7 +47,7 @@ install/logcat/adb-enable) in composable recipes.
 
 - **Never run Gradle builds locally on this machine** — this is a multi-module
   Android project and local compiles are heavy. Always build on a build host (see the
-  `brkn-infra` skill) instead. The `justfile` automates this:
+  `brkn-infra` skill) instead; for heavy or parallel builds an ad-hoc `rworker` (see the `rworker` skill) is an alternative. The `justfile` automates the shared-host route:
   - `just sync [host]` — rsync the working tree to the remote build host (excludes
     `.git`, `build/`, `.gradle/`). The remote destination directory is namespaced per git
     worktree (`jollyfin-verify-<worktree-dirname>` when run from a linked worktree, e.g. one
