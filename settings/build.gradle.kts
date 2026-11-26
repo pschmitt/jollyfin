@@ -5,7 +5,9 @@ plugins {
 
 android {
     namespace = "dev.pschmitt.jellyfin.settings"
-    compileSdk = Versions.COMPILE_SDK
+    compileSdk {
+        version = release(Versions.COMPILE_SDK) { minorApiLevel = Versions.COMPILE_SDK_MINOR }
+    }
     buildToolsVersion = Versions.BUILD_TOOLS
 
     defaultConfig { minSdk = Versions.MIN_SDK }

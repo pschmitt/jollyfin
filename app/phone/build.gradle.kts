@@ -15,7 +15,9 @@ val configuredVersionName = providers.gradleProperty("versionName").orNull ?: Ve
 
 android {
     namespace = "dev.pschmitt.jellyfin"
-    compileSdk = Versions.COMPILE_SDK
+    compileSdk {
+        version = release(Versions.COMPILE_SDK) { minorApiLevel = Versions.COMPILE_SDK_MINOR }
+    }
     buildToolsVersion = Versions.BUILD_TOOLS
 
     defaultConfig {

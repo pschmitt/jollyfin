@@ -5,6 +5,7 @@ object Versions {
     const val APP_NAME = "2.16.2"
 
     const val COMPILE_SDK = 37
+    const val COMPILE_SDK_MINOR = 1
     const val TARGET_SDK = 36
     const val MIN_SDK = 28
     const val BUILD_TOOLS = "36.1.0"
