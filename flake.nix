@@ -39,7 +39,7 @@
         # typo - the project intentionally compiles against a newer platform than its pinned
         # build-tools version).
         buildToolsVersion = "36.1.0";
-        platformVersion = "37-0";
+        platformVersion = "37-1";
         gitHooksLib = git-hooks.lib;
         # No local AVD-based screenshot capture here (only CI-driven, see screenshots.yaml) - so
         # no `screenshots` devShell.
