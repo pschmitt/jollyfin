@@ -133,7 +133,7 @@ Pad 4's instance) remotely, without touching that device directly.
     WorkManager's timing entirely by calling `syncNow()` directly.
 - [x] Verified via remote `:app:phone:compileLibreDebugKotlin`, `ktfmtCheck`,
       and `:data:testDebugUnitTest`/`:core:testLibreDebugUnitTest` on
-      rofl-13 - all green (2026-07-28, after fixing two real cross-module
+      $ANDROID_REMOTE_HOST - all green (2026-07-28, after fixing two real cross-module
       issues the first build caught: `core` was missing the
       kotlinx.serialization plugin/dependency, and `planRemoteConfigSync`/
       `RemoteConfigSyncPlan` were `internal` in `data`, invisible from the
@@ -330,7 +330,7 @@ specific error when bailing out enabled-but-no-folder (surfaced via the
 existing Backup & Restore error banner) and clears it once a folder is
 picked; filename format extracted into shared `BackupFileNaming` (device
 model + `findroidplus` prefix) used by both the scheduled and manual backup
-paths. Verified via remote compile/ktfmtCheck/unit tests on rofl-13.
+paths. Verified via remote compile/ktfmtCheck/unit tests on $ANDROID_REMOTE_HOST.
 
 ## FINDROID-48: Re-group the main Settings screen
 
@@ -349,7 +349,7 @@ paths. Verified via remote compile/ktfmtCheck/unit tests on rofl-13.
 Status: done (`33ba5d1d`, 2026-07-28) - Settings root now shows 7 coherent
 groups instead of 10; every individual preference row preserved, only its
 top-level home changed. Verified app:phone/app:tv compile + ktfmtCheck on
-rofl-13.
+$ANDROID_REMOTE_HOST.
 
 ## FINDROID-49: Simplify findroid-cli to local-only, drop root requirement, fix gaps
 
@@ -499,7 +499,7 @@ got the release build from the same batch as this entry.
       in `download list --active` with real percent/size, cancelled it,
       confirmed it vanished from both `--active` and the completed list -
       no orphaned DB rows). `remove`'s success path is unverified live -
-      the test device's Jellyfin server (`tv.brkn.lol`) became DNS-
+      the test device's Jellyfin server (`jellyfin.example.com`) became DNS-
       unreachable mid-session (unrelated to this change; confirmed via a
       plain `debug jellyfin` connectivity check), and its error paths
       (missing args, both single/multi ITEM_ID forms) were checked instead.
@@ -558,7 +558,7 @@ current requirement to separately clone/copy the script from the
       vs. the copy was undefined). The variant-API registration fixes that by
       letting AGP wire every consumer (merge, lint-vital, packaging) itself.
 
-Verified: `just gradle rofl-13.brkn.lol ":app:phone:compileLibreDebugKotlin"
+Verified: `just gradle $ANDROID_REMOTE_HOST ":app:phone:compileLibreDebugKotlin"
 ":core:compileLibreDebugKotlin" "ktfmtCheck" ":core:testLibreDebugUnitTest"
 ":data:testDebugUnitTest"` -> BUILD SUCCESSFUL. A full CI-signed
 `just build-fetch --release --phone` (forced with `--rerun-tasks`) also
@@ -675,7 +675,7 @@ management, evaluated by this device's own WorkManager.
       - Updated `usage()` with the new `version` and `autodownload` entries
         and their aliases.
 
-Verified remotely: `just gradle rofl-13.brkn.lol
+Verified remotely: `just gradle $ANDROID_REMOTE_HOST
 ":core:compileLibreDebugKotlin" ":app:phone:compileLibreDebugKotlin"
 "ktfmtCheck" ":core:testLibreDebugUnitTest" ":data:testDebugUnitTest"` ->
 BUILD SUCCESSFUL in 1m 25s, 117 actionable tasks executed, no warnings in the
@@ -711,14 +711,14 @@ device is Magisk-rooted, rather than a host-side simulation):
   that call, since a future rule is always only-new by definition.
 - `logcat` confirmed each add/remove triggered a real `GET`+`POST
   .../DisplayPreferences/findroidplus-remoteconfig` round-trip against the
-  live Jellyfin server (`tv.brkn.lol`) immediately after the mutation -
+  live Jellyfin server (`jellyfin.example.com`) immediately after the mutation -
   `syncNow()` republishing verified end-to-end, not just called.
 - `findroid-cli autodownload remove "Mushoku Tensei: ..."` and, separately,
   `autodownload remove-id RULE_ID` (targeting just the newly-added rule's own
   numeric id) both worked, leaving the device's original 4 rules untouched
   throughout.
 - Also installed the same signed release build on a second connected device
-  (`R6AIB700W850L7G`, ASUS_AI2302) - install succeeded, but "Local CLI
+  (`$ZENFONE_SERIAL`, ASUS_AI2302) - install succeeded, but "Local CLI
   access" had never been enabled on that device before and enabling it was
   out of scope for this pass, so no CLI verification was done there; not a
   blocker per the ticket's own guidance.
@@ -865,7 +865,7 @@ individual preference row preserved; only which top-level group it lives
 under, its label, and the overall ordering changed.
 
 Status: done (2026-07-28) - `:settings`/`:app:phone`/`:app:tv` all compile
-and `ktfmtCheck` passes on rofl-13. Not separately verified on-device beyond
+and `ktfmtCheck` passes on $ANDROID_REMOTE_HOST. Not separately verified on-device beyond
 compile (a pure data/config reorganization, no new runtime logic).
 
 ## FINDROID-56: Automatic backup silently fails on cloud-backed folders
@@ -1098,7 +1098,7 @@ component is `<applicationId>/dev.jdtech.jellyfin.MainActivity`.
       files' content has no FQN references needing changes (just table
       schemas/an `identityHash`), so a plain directory rename was the
       complete fix.
-- [x] Verified with a real remote Gradle build (`just gradle rofl-13.brkn.lol
+- [x] Verified with a real remote Gradle build (`just gradle $ANDROID_REMOTE_HOST
       :app:phone:assembleLibreDebug :app:tv:assembleLibreDebug`), not just
       `bash -n`/`shellcheck` on the CLI side - this is exactly the kind of
       rename where "looks right" and "compiles" diverge (see the schema
@@ -1462,7 +1462,7 @@ into the repo, so regenerate from scratch (mark path data is in `ic_launcher_for
 rather than expecting to find them again.
 
 - [x] Build-verified remotely: `assembleLibreDebug`/`assembleLibreRelease` for both
-  `:app:phone`/`:app:tv` all passed on rofl-13. Installed and screenshot-checked on real devices
+  `:app:phone`/`:app:tv` all passed on $ANDROID_REMOTE_HOST. Installed and screenshot-checked on real devices
   (Mi Pad 4, px5) - Welcome screen, banner, and About screen all render correctly as "JollyFin"
   with no leftover "Findroid+"/"Findroid" text, and no white-corner artifact from the transparency
   bug caught and fixed along the way (see below).
@@ -1495,8 +1495,8 @@ rather than expecting to find them again.
 
 **Handoff - resolved in the 2026-08-05 follow-up session:**
 - [x] **Port fix rebuilt and re-verified on-device.** Built `assembleLibreDebug` +
-  `assembleLibreRelease` remotely (see "Concurrency gotcha" below for why rofl-14 was used
-  instead of rofl-13), installed both on the Mi Pad 4 alongside each other, force-stopped and
+  `assembleLibreRelease` remotely (see "Concurrency gotcha" below for why $ANDROID_REMOTE_HOST was used
+  instead of $ANDROID_REMOTE_HOST), installed both on the Mi Pad 4 alongside each other, force-stopped and
   relaunched together. Confirmed via `/proc/net/tcp6` (NanoHTTPD binds `127.0.0.1` as an
   IPv4-mapped IPv6 socket, so plain `/proc/net/tcp` shows nothing - check `tcp6`) that release
   listens on 48411 and debug on 48412 simultaneously, plus `curl http://127.0.0.1:<port>/cli`
@@ -1539,12 +1539,12 @@ redesigning something nothing displays; rebuilt `assembleLibreDebug` for both `:
   explicitly confirmed 2026-08-05 they wanted this tagged now.
 
 **Concurrency gotcha found this session:** the remote build directory
-(`~/devel/private/pschmitt/jollyfin-verify` on rofl-13/rofl-14) is only namespaced per
+(`~/devel/private/pschmitt/jollyfin-verify` on the remote build host is only namespaced per
 *worktree* - two sessions both building from the plain main checkout land in the identical
 remote path and can corrupt each other's in-flight build (this session's first release-build
-attempt on rofl-13 failed 3m33s in with "keystore file doesn't exist" after a concurrent,
+attempt on $ANDROID_REMOTE_HOST failed 3m33s in with "keystore file doesn't exist" after a concurrent,
 unrelated `compileDebugAndroidTestKotlin` invocation showed up in the same directory mid-build).
-Switching to rofl-14 side-stepped it cleanly. Worth remembering if a release build fails with a
+Switching to $ANDROID_REMOTE_HOST side-stepped it cleanly. Worth remembering if a release build fails with a
 file-existence error partway through for no obvious reason - check `ps` on the build host for a
 second Gradle invocation in the same path before assuming the build itself is broken.
 
@@ -1605,7 +1605,7 @@ what this build understands, it doesn't yet handle migrating an *older* envelope
 
 Status: **done**, 2026-08-05 - implemented and verified: `:data`/`:core` unit tests (including
 the new `BackupDataTest`), `ktfmtCheck`, and `assembleLibreDebug` for both `:app:phone`/`:app:tv`
-all pass on rofl-14. Not exercised via an actual on-device Settings > Backup UI round-trip
+all pass on $ANDROID_REMOTE_HOST. Not exercised via an actual on-device Settings > Backup UI round-trip
 (deliberately - see the automated-test note above for why that wasn't the right tool here); the
 version-guard's only untested edge is real migration logic, which doesn't exist yet by design.
 
@@ -1657,7 +1657,7 @@ way: each now requires `compileSdk 37` or later, and this project is still pinne
 - [x] Bumped `Versions.COMPILE_SDK` 36 -> 37. Left `TARGET_SDK`/`MIN_SDK` at 36/28 untouched -
   those change runtime behavior and device compatibility, `compileSdk` only changes which APIs
   are available at compile time.
-- [x] Rebuilt remotely on rofl-14: `assembleLibreDebug`/`assembleLibreRelease` for both
+- [x] Rebuilt remotely on $ANDROID_REMOTE_HOST: `assembleLibreDebug`/`assembleLibreRelease` for both
   `:app:phone`/`:app:tv`, `:data`/`:core` unit tests, `ktfmtCheck` - all pass. Only pre-existing
   deprecation warnings (`MasterKey`/`EncryptedSharedPreferences`, `LocalClipboardManager`,
   `java.util.Locale(String)`), no new errors. `nixfmt`/`statix` also clean on the `flake.nix`
@@ -1757,7 +1757,7 @@ time. Baking once and shipping the result sidesteps both.
   `DropdownMenu` like Nyetbox's color-scheme picker, so no UiAutomator-fallback click was needed
   here), two system back-presses back to Home, repeat the Home/detail capture with a `_dark`
   suffix. Compiles clean (`:app:phone:assembleLibreDebugAndroidTest` built successfully on
-  rofl-13), but **not yet run on an emulator** - the wait/click sequence is source-verified, not
+  $ANDROID_REMOTE_HOST), but **not yet run on an emulator** - the wait/click sequence is source-verified, not
   execution-verified; treat first CI/local runs as the real test of the click choreography, same
   as Nyetbox's own POC needed a few iterations to get flake-free.
 - [x] `.github/workflows/screenshots.yaml`: `workflow_dispatch` with an `open_pr` boolean input,
@@ -1851,7 +1851,7 @@ still out of scope - not asked for this time either, same boundary FINDROID-68 d
   rename), then again after the `FindroidTheme`/style-resource rename together with
   `:data:testDebugUnitTest`/`:core:testLibreDebugUnitTest` - all green. `just lint` (remote, CI's
   pinned ktfmt) caught 6 files ktfmt wanted reformatted as a side effect of the renames; fixed via
-  `just gradle rofl-13 ktfmtFormat` + manually `rsync`ing the reformatted files back (no
+  `just gradle $ANDROID_REMOTE_HOST ktfmtFormat` + manually `rsync`ing the reformatted files back (no
   local-ktfmt-vs-CI-ktfmt version mismatch risk, since this ran the actual pinned remote plugin,
   not nixpkgs' newer standalone binary) - `just lint` clean afterward. Built and deployed the
   release APK (post keystore-rename) to all three attached devices (ASUS phone, Mi Pad 4, px5) with
@@ -1927,7 +1927,7 @@ Requested (2026-08-07), immediately after v2.14.0 (Profiles) shipped:
         profile switch mid-session won't re-evaluate it until the next cold start - a smaller,
         separate follow-up if that turns out to matter in practice.
   - [x] Verified: remote `ktfmtCheck` and `:app:phone:compileLibreDebugKotlin`/
-        `:app:tv:compileLibreDebugKotlin` both green on rofl-13. Not yet re-verified on a physical
+        `:app:tv:compileLibreDebugKotlin` both green on $ANDROID_REMOTE_HOST. Not yet re-verified on a physical
         device.
 - [x] Let the QR export flow choose which profile's config gets encoded, instead of always
       encoding whichever profile happens to be active. Added a profile picker to the phone export
@@ -1967,7 +1967,7 @@ Requested (2026-08-07), immediately after v2.14.0 (Profiles) shipped:
         established for the secret-loss case earlier this session.
   - [x] Verified: remote `ktfmtCheck`, `:app:phone:compileLibreDebugKotlin`/
         `:app:tv:compileLibreDebugKotlin`, and `:core:testLibreDebugUnitTest`/
-        `:data:testDebugUnitTest` all green on rofl-13. Not yet re-verified on a physical device
+        `:data:testDebugUnitTest` all green on $ANDROID_REMOTE_HOST. Not yet re-verified on a physical device
         with a real old-format backup file (no such file was available in this pass).
 - [x] Reorganize Settings grouping/ordering again - split the oversized Appearance screen into
       focused Appearance and Player sections, and split Advanced into Integrations (PVR sync plus
@@ -2016,7 +2016,7 @@ removed.
 - [x] Bump the patch release from 2.14.2 (57) to 2.14.3 (58), including the English changelog.
 
 Status: **done** (2026-08-11) - `ktfmtCheck`, `data`/`core` unit tests, and the signed
-`assembleLibreRelease` build passed remotely on rofl-14; a 2.14.4 (59) test/deployment build was
+`assembleLibreRelease` build passed remotely on $ANDROID_REMOTE_HOST; a 2.14.4 (59) test/deployment build was
 installed without uninstalling the apps. On px5, a real 2.2 GiB download changed to
 `Paused` with the battery-saver indicator when saver was enabled, resumed with live progress when
 it was disabled, and a manually paused download remained paused across the same toggle. Temporary
@@ -2034,7 +2034,7 @@ test media was cancelled afterward; both devices were restored to saver OFF and 
       and Pixel 5.
 - [ ] Run the separate remote ktfmt and unit-test checks.
 
-Status: mostly done (2026-08-12) - production APK 2.14.4/versionCode 59 built on `rofl-14` and
+Status: mostly done (2026-08-12) - production APK 2.14.4/versionCode 59 built on `$ANDROID_REMOTE_HOST` and
 installed successfully on all three attached devices; ktfmt and unit-test checks remain.
 
 ## FINDROID-78: Improve custom navigation-bar search and presentation
@@ -2051,7 +2051,7 @@ installed successfully on all three attached devices; ktfmt and unit-test checks
       toggle and navbar preview changes when a remote build host is reachable.
 
 Status: in progress (2026-08-13) - per-item cover-art controls and the live navbar preview are
-implemented; remote verification is pending because rofl-13 and rofl-14 are currently unreachable.
+implemented; remote verification is pending because $ANDROID_REMOTE_HOST and $ANDROID_REMOTE_HOST are currently unreachable.
 
 ## FINDROID-79: Fix missing offline badge on Next Up and move it bottom-right
 
@@ -2063,12 +2063,12 @@ implemented; remote verification is pending because rofl-13 and rofl-14 are curr
       bottom-right corner of the poster, per user preference; the queue/played/count/new badges
       stay top-right.
 - [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
-      compilation remotely on rofl-13.
+      compilation remotely on $ANDROID_REMOTE_HOST.
 - [x] Build and install a signed release APK on the ASUS phone, Mi Pad 4, and px5.
 - [x] Bump the patch release from 2.14.3 (60) to 2.14.4 (61), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint`, `just test`, and
-`:app:phone:compileLibreDebugKotlin` all passed on rofl-13; a signed
+`:app:phone:compileLibreDebugKotlin` all passed on $ANDROID_REMOTE_HOST; a signed
 `assembleLibreRelease` build was installed on all three devices via adb.
 
 ## FINDROID-80: Show the offline badge on show posters too (e.g. "Latest Shows")
@@ -2089,11 +2089,11 @@ Status: **done** (2026-08-13) - `just lint`, `just test`, and
 - [x] `ItemCard` now badges a poster when either `item.isDownloaded()` or (for shows)
       `hasDownloadedEpisodes` is true.
 - [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`), and phone module
-      compilation remotely on rofl-13.
+      compilation remotely on $ANDROID_REMOTE_HOST.
 - [x] Bump the patch release from 2.14.4 (61) to 2.14.5 (62), including the English changelog.
 
 Status: **done** (2026-08-13) - `just lint`, `just test`, and `:app:phone:compileLibreDebugKotlin`
-all passed on rofl-13. Scoped to the phone app's home dashboard, matching what was reported; the TV
+all passed on $ANDROID_REMOTE_HOST. Scoped to the phone app's home dashboard, matching what was reported; the TV
 app's separate `ItemCard`/`isDownloaded()` usage was left untouched.
 
 ## FINDROID-81: Fix missing offline badge on "Latest Shows" episode thumbnails
@@ -2105,10 +2105,10 @@ app's separate `ItemCard`/`isDownloaded()` usage was left untouched.
       false for every episode reached through this shared dispatcher - "Latest Shows" and anything
       else built on `getLatestMedia`/`toJollyfinItem` for episodes.
 - [x] Pass `serverDatabase` through the `EPISODE` branch, matching `MOVIE`/`SERIES`.
-- [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`) remotely on rofl-13.
+- [x] Verify formatting (`just lint`), `data`/`core` unit tests (`just test`) remotely on $ANDROID_REMOTE_HOST.
 - [x] Bump the patch release from 2.14.5 (62) to 2.14.6 (63), including the English changelog.
 
-Status: **done** (2026-08-13) - `just lint` and `just test` passed on rofl-13.
+Status: **done** (2026-08-13) - `just lint` and `just test` passed on $ANDROID_REMOTE_HOST.
 
 <!--
 Entries above use the FINDROID-N prefix from before the Jollyfin rename (see FINDROID-72) and
@@ -2125,7 +2125,7 @@ See AGENTS.md's "Task tracking" section.
 - [x] Verify formatting, compilation, and relevant tests remotely.
 
 Status: **done** (2026-08-19) - remote `ktfmtCheck`, `data`/`core` unit tests, and
-`:app:phone:compileLibreDebugKotlin` all passed on rofl-13.
+`:app:phone:compileLibreDebugKotlin` all passed on $ANDROID_REMOTE_HOST.
 
 ## JF-83: Fix "Pending downloads" and Calendar tab vanishing after backup restore
 
@@ -2152,7 +2152,7 @@ Status: **done** (2026-08-19) - remote `ktfmtCheck`, `data`/`core` unit tests, a
 - [x] Bump the patch release from 2.14.7 (64) to 2.14.8 (65), including the English changelog.
 
 Status: **done** (2026-08-21) - remote `ktfmtCheck`, `data`/`core` unit tests, and
-`:app:phone:compileLibreDebugKotlin`/`:core:compileLibreDebugKotlin` all passed on rofl-13; verified
+`:app:phone:compileLibreDebugKotlin`/`:core:compileLibreDebugKotlin` all passed on $ANDROID_REMOTE_HOST; verified
 live on a Zenfone 10 over wired adb.
 
 ## JF-84: Ignore incomplete local downloads during playback
@@ -2163,7 +2163,7 @@ live on a Zenfone 10 over wired adb.
 - [x] Verify formatting, compilation, and relevant unit tests remotely.
 
 Status: **done** (2026-08-22) - remote player-module tests, repository `ktfmtCheck`,
-`data`/`core` unit tests, and `:app:phone:compileLibreDebugKotlin` all passed on rofl-13.
+`data`/`core` unit tests, and `:app:phone:compileLibreDebugKotlin` all passed on $ANDROID_REMOTE_HOST.
 
 ## JF-85: Move Season delete-download action into the overflow menu
 
@@ -2226,13 +2226,13 @@ Status: **done** (2026-08-22) - Build, Lint, and Release CI passed for `7a559f9e
 - [ ] Add regression coverage for `getFavoriteItems()` (and ideally the other stubs) under
       `JellyfinRepositoryOfflineImpl`, since none of the existing offline-repo tests caught this.
 - [x] Verify formatting (`just lint`) and `data`/`core` unit tests (`just test`) remotely on
-      rofl-13.
+      $ANDROID_REMOTE_HOST.
 - [x] Bump the patch release from 2.14.9 (66) to 2.14.10 (67).
 
 Found while recording a Play Console foreground-service demo video (FINDROID-71's disposable
 Jellyfin fixture, `ci/jellyfin/`) on a Zenfone 10 over wired adb: after cycling the fixture profile
 through several throttled/interrupted background downloads, Offline Mode ended up enabled and
-JollyFin then crash-looped on launch for *both* the fixture profile and the real `pschmitt@rofl-11`
+JollyFin then crash-looped on launch for *both* the fixture profile and the real `pschmitt@$ANDROID_REMOTE_HOST`
 profile - `pm clear`'d at the user's request to recover the device, which also wiped the real
 profile's login (no backup had been exported first; the app does support Settings > Backup &
 Restore for next time). Root cause traced by reading source (not confirmed by reproducing live):
@@ -2244,7 +2244,7 @@ session's network-interruption testing most likely landed on it instead of Retry
 add an "Disable offline mode" action so this is reversible in-app, and reconsider a one-way,
 irreversible, blindly-tappable "go offline forever" action reachable from a transient error state.
 
-Status: **done** (2026-08-27) - remote `ktfmtCheck` and `data`/`core` unit tests passed on rofl-13
+Status: **done** (2026-08-27) - remote `ktfmtCheck` and `data`/`core` unit tests passed on $ANDROID_REMOTE_HOST
 both before and after rebasing onto upstream dependency-bump commits; Build/Lint/Release CI green
 on `78f65ed1`; pushed as `v2.14.10`. Regression test coverage for the fixed stubs still pending.
 
@@ -2368,7 +2368,7 @@ in-app WebView or the system browser).
 Not covered on the TV app (no WebView-friendly navigation there).
 
 Status: mostly done (2026-10-07) - remote `ktfmtCheck`, `:app:phone`/`:app:tv` compile and
-`data`/`core` unit tests pass on rofl-13; core flows verified live on the Zenfone 10 (see above).
+`data`/`core` unit tests pass on $ANDROID_REMOTE_HOST; core flows verified live on the Zenfone 10 (see above).
 
 ## JF-95: Crash on detail pages whose cast lists a person twice
 

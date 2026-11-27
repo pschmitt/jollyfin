@@ -2,11 +2,11 @@
 #
 # Gradle must never run on this machine directly - it's a heavy multi-module Android
 # project, so every build/test/lint recipe here shells out to a remote host
-# (rofl-13.brkn.lol or rofl-14.brkn.lol) over SSH instead. See AGENTS.md.
+# (the remote build host) over SSH instead. See AGENTS.md.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-remote_host := env_var_or_default("JOLLYFIN_REMOTE_HOST", "rofl-13.brkn.lol")
+remote_host := env_var_or_default("JOLLYFIN_REMOTE_HOST", env_var_or_default("ANDROID_REMOTE_HOST", ""))
 
 # Empty for the main checkout; "-<worktree-dirname>" when run from a linked git worktree (e.g.
 # one of Claude's isolated agent worktrees under .claude/worktrees/). Keeps parallel worktree
@@ -16,7 +16,7 @@ worktree_suffix := `gd=$(git rev-parse --git-dir); gcd=$(git rev-parse --git-com
 remote_path := env_var_or_default("JOLLYFIN_REMOTE_PATH", "~/devel/private/pschmitt/jollyfin-verify" + worktree_suffix)
 local_dist := env_var_or_default("JOLLYFIN_DIST_DIR", "./dist")
 
-mipad_host := env_var_or_default("MIPAD_HOST", "mi-pad-4.lan")
+mipad_host := env_var_or_default("MIPAD_HOST", "")
 mipad_ssh_port := env_var_or_default("MIPAD_SSH_PORT", "8022")
 mipad_adb_port := env_var_or_default("MIPAD_ADB_PORT", "5555")
 mipad_abi := env_var_or_default("MIPAD_ABI", "arm64-v8a")
@@ -41,7 +41,7 @@ default:
 # fresh git worktree never needs a manual `--init` step.
 import '.just/android-app-ci/just/common.just'
 
-# --- Remote build (rofl-13 / rofl-14) -------------------------------------
+# --- Remote build (the remote build host) -------------------------------------
 
 # Sync the working tree to the remote build host (excludes .git/build/.gradle). The .git
 # exclude has no trailing slash so it matches both a real .git/ directory (the main checkout)

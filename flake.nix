@@ -45,7 +45,7 @@
         # no `screenshots` devShell.
         screenshotsSystemImage = null;
         quickStart = ''
-          echo "  just build-phone-debug              # Build debug APK (phone) on rofl-13"
+          echo "  just build-phone-debug              # Build debug APK (phone) on $ANDROID_REMOTE_HOST"
           echo "  just build-and-fetch-phone-debug    # ...and copy it back to ./dist"
           echo "  just deploy-phone-debug             # ...and install it on the Mi Pad 4"
           echo "  just mipad-logcat                   # Tail logs from the Mi Pad 4"

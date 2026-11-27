@@ -205,7 +205,7 @@ private fun MessageDetailsDialogPreview() {
         MessageDetailsDialog(
             title = "Manual import failed",
             message =
-                "Sonarr request to https://son.arr.brkn.lol/api/v3/command failed with HTTP 400: " +
+                "Sonarr request to https://sonarr.example.com/api/v3/command failed with HTTP 400: " +
                     "[{\"propertyName\":\"Name\",\"errorMessage\":\"'Name' must not be empty.\"}]",
             onDismissRequest = {},
         )
