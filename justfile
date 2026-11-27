@@ -6,7 +6,9 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-remote_host := env_var_or_default("JOLLYFIN_REMOTE_HOST", env_var_or_default("ANDROID_REMOTE_HOST", ""))
+# Build host and device names come from the private Android dev config
+# (.just/android-app-ci/scripts/android-dev-env, ~/.config/android-dev/env); environment variables still win.
+remote_host := env_var_or_default("JOLLYFIN_REMOTE_HOST", `.just/android-app-ci/scripts/android-dev-env ANDROID_REMOTE_HOST 2>/dev/null || true`)
 
 # Empty for the main checkout; "-<worktree-dirname>" when run from a linked git worktree (e.g.
 # one of Claude's isolated agent worktrees under .claude/worktrees/). Keeps parallel worktree
@@ -16,7 +18,7 @@ worktree_suffix := `gd=$(git rev-parse --git-dir); gcd=$(git rev-parse --git-com
 remote_path := env_var_or_default("JOLLYFIN_REMOTE_PATH", "~/devel/private/pschmitt/jollyfin-verify" + worktree_suffix)
 local_dist := env_var_or_default("JOLLYFIN_DIST_DIR", "./dist")
 
-mipad_host := env_var_or_default("MIPAD_HOST", "")
+mipad_host := `.just/android-app-ci/scripts/android-dev-env MIPAD_HOST 2>/dev/null || true`
 mipad_ssh_port := env_var_or_default("MIPAD_SSH_PORT", "8022")
 mipad_adb_port := env_var_or_default("MIPAD_ADB_PORT", "5555")
 mipad_abi := env_var_or_default("MIPAD_ABI", "arm64-v8a")
